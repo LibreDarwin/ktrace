@@ -8,6 +8,9 @@ The initial implementation provides the confirmed C session and output ABI:
 - `ktrace_start` and `ktrace_end`
 - `ktrace_start_writing_path`, `ktrace_start_writing_fd`, and
   `ktrace_start_writing_file`
+- Confirmed scalar session controls for buffer size, mode, event names,
+  timestamping, coprocessor tracing, thread groups, existing traces, vnode
+  paths, and postprocessing.
 - `ktrace_recording_create`, `ktrace_recording_destroy`, and
   `ktrace_recording_set_streams`
 

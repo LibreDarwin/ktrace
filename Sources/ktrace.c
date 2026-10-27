@@ -13,6 +13,16 @@ struct ktrace_session {
     int output_fd;
     int owns_output_fd;
     int started;
+    uint64_t buffer_size;
+    int default_event_names_enabled;
+    int event_names_enabled;
+    int continuous_timestamps;
+    int coprocessor_tracing_enabled;
+    int mode;
+    int no_postprocessing;
+    int thread_groups_enabled;
+    int use_existing;
+    int vnode_paths_enabled;
 };
 
 struct ktrace_recording {
@@ -39,6 +49,69 @@ void ktrace_session_free(ktrace_session_t session) {
 
 void ktrace_session_destroy(ktrace_session_t session) {
     ktrace_session_free(session);
+}
+
+static int ktrace_set_bool(int *slot, int enabled) {
+    if (slot == NULL)
+        return EINVAL;
+    *slot = enabled != 0;
+    return 0;
+}
+
+int ktrace_session_set_default_event_names_enabled(ktrace_session_t session,
+                                                   int enabled) {
+    return session == NULL ? EINVAL :
+        ktrace_set_bool(&session->default_event_names_enabled, enabled);
+}
+
+int ktrace_session_set_event_names_enabled(ktrace_session_t session, int enabled) {
+    return session == NULL ? EINVAL :
+        ktrace_set_bool(&session->event_names_enabled, enabled);
+}
+
+int ktrace_set_buffer_size(ktrace_session_t session, uint64_t size) {
+    if (session == NULL || size == 0)
+        return EINVAL;
+    session->buffer_size = size;
+    return 0;
+}
+
+int ktrace_set_continuous_timestamps(ktrace_session_t session, int enabled) {
+    return session == NULL ? EINVAL :
+        ktrace_set_bool(&session->continuous_timestamps, enabled);
+}
+
+int ktrace_set_coprocessor_tracing_enabled(ktrace_session_t session, int enabled) {
+    return session == NULL ? EINVAL :
+        ktrace_set_bool(&session->coprocessor_tracing_enabled, enabled);
+}
+
+int ktrace_set_mode(ktrace_session_t session, int mode) {
+    if (session == NULL)
+        return EINVAL;
+    session->mode = mode;
+    return 0;
+}
+
+int ktrace_set_no_postprocessing(ktrace_session_t session) {
+    return session == NULL ? EINVAL : ktrace_set_bool(&session->no_postprocessing, 1);
+}
+
+int ktrace_set_thread_groups_enabled(ktrace_session_t session, int enabled) {
+    return session == NULL ? EINVAL :
+        ktrace_set_bool(&session->thread_groups_enabled, enabled);
+}
+
+int ktrace_set_use_existing(ktrace_session_t session) {
+    if (session == NULL)
+        return EINVAL;
+    session->use_existing = 1;
+    return 1;
+}
+
+int ktrace_set_vnode_paths_enabled(ktrace_session_t session, int enabled) {
+    return session == NULL ? EINVAL :
+        ktrace_set_bool(&session->vnode_paths_enabled, enabled);
 }
 
 static int ktrace_set_output(ktrace_session_t session, int fd, int owns_fd) {

@@ -22,6 +22,19 @@ void ktrace_session_free(ktrace_session_t session);
 int ktrace_start(ktrace_session_t session);
 int ktrace_end(ktrace_session_t session, int flush);
 
+int ktrace_session_set_default_event_names_enabled(ktrace_session_t session,
+                                                   int enabled);
+int ktrace_session_set_event_names_enabled(ktrace_session_t session,
+                                           int enabled);
+int ktrace_set_buffer_size(ktrace_session_t session, uint64_t size);
+int ktrace_set_continuous_timestamps(ktrace_session_t session, int enabled);
+int ktrace_set_coprocessor_tracing_enabled(ktrace_session_t session, int enabled);
+int ktrace_set_mode(ktrace_session_t session, int mode);
+int ktrace_set_no_postprocessing(ktrace_session_t session);
+int ktrace_set_thread_groups_enabled(ktrace_session_t session, int enabled);
+int ktrace_set_use_existing(ktrace_session_t session);
+int ktrace_set_vnode_paths_enabled(ktrace_session_t session, int enabled);
+
 int ktrace_start_writing_path(ktrace_session_t session, const char *path,
                               mode_t mode);
 int ktrace_start_writing_fd(ktrace_session_t session, int close_fd, int fd,

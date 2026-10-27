@@ -14,6 +14,11 @@ int main(void) {
     int fd = mkstemp(path);
     assert(session != NULL);
     assert(fd >= 0);
+    assert(ktrace_set_buffer_size(session, 64) == 0);
+    assert(ktrace_set_continuous_timestamps(session, 1) == 0);
+    assert(ktrace_set_thread_groups_enabled(session, 1) == 0);
+    assert(ktrace_set_use_existing(session) == 1);
+    assert(ktrace_set_no_postprocessing(session) == 0);
     assert(ktrace_start_writing_fd(session, 0, fd, 0, 0) == 0);
     assert(ktrace_start(session) == 0);
     assert(ktrace_start(session) == EBUSY);

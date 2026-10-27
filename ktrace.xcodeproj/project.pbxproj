@@ -1,0 +1,23 @@
+// !$*UTF8*$!
+{
+ archiveVersion = 1;
+ classes = {};
+ objectVersion = 56;
+ objects = {
+  B00000000000000000000001 = {isa = PBXBuildFile; fileRef = B00000000000000000000011; };
+  B00000000000000000000011 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ktrace.c; sourceTree = "<group>"; };
+  B00000000000000000000012 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ktrace.h; sourceTree = "<group>"; };
+  B00000000000000000000021 = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = libktrace.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+  B00000000000000000000031 = {isa = PBXGroup; children = (B00000000000000000000011, B00000000000000000000012); path = Sources; sourceTree = "<group>"; };
+  B00000000000000000000032 = {isa = PBXGroup; children = (B00000000000000000000021); name = Products; sourceTree = "<group>"; };
+  B00000000000000000000033 = {isa = PBXGroup; children = (B00000000000000000000031, B00000000000000000000032); sourceTree = "<group>"; };
+  B00000000000000000000041 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B00000000000000000000001); runOnlyForDeploymentPostprocessing = 0; };
+  B00000000000000000000051 = {isa = XCBuildConfiguration; buildSettings = {PRODUCT_NAME = libktrace; SDKROOT = macosx; MACH_O_TYPE = mh_dylib; DYLIB_INSTALL_NAME_BASE = /usr/lib; }; name = Release; };
+  B00000000000000000000061 = {isa = XCConfigurationList; buildConfigurations = (B00000000000000000000051); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+  B00000000000000000000071 = {isa = PBXNativeTarget; buildConfigurationList = B00000000000000000000061; buildPhases = (B00000000000000000000041); name = libktrace; productName = libktrace; productReference = B00000000000000000000021; productType = "com.apple.product-type.library.dynamic"; };
+  B00000000000000000000081 = {isa = XCBuildConfiguration; buildSettings = {SDKROOT = macosx; }; name = Release; };
+  B00000000000000000000082 = {isa = XCConfigurationList; buildConfigurations = (B00000000000000000000081); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+  B00000000000000000000091 = {isa = PBXProject; buildConfigurationList = B00000000000000000000082; compatibilityVersion = "Xcode 14.0"; mainGroup = B00000000000000000000033; productRefGroup = B00000000000000000000032; projectDirPath = ""; projectRoot = ""; targets = (B00000000000000000000071); };
+ };
+ rootObject = B00000000000000000000091;
+}

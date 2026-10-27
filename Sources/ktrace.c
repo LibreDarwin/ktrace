@@ -315,8 +315,12 @@ ktrace_chunk_t ktrace_file_append_start(ktrace_file_t file, uint32_t tag,
     if (file == NULL || !file->writable || file->active_chunk != NULL)
         return NULL;
     offset = lseek(file->fd, 0, SEEK_END);
-    if (offset < 0 || write(file->fd, &header, sizeof(header)) != (ssize_t)sizeof(header))
+    if (offset < 0)
         return NULL;
+    if (write(file->fd, &header, sizeof(header)) != (ssize_t)sizeof(header)) {
+        (void)ftruncate(file->fd, offset);
+        return NULL;
+    }
     chunk = calloc(1, sizeof(*chunk));
     if (chunk == NULL) {
         ftruncate(file->fd, offset);
@@ -382,10 +386,8 @@ int ktrace_file_append_stackshot(ktrace_file_t file, const void *data, size_t si
     result = ktrace_file_append_data(file, chunk, data, size);
     if (result == 0)
         result = ktrace_file_append_finish(file, chunk);
-    else {
-        file->active_chunk = NULL;
-        free(chunk);
-    }
+    else
+        ktrace_file_discard_active_chunk(file);
     return result;
 }
 

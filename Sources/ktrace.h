@@ -15,6 +15,7 @@ extern "C" {
 typedef struct ktrace_session *ktrace_session_t;
 typedef struct ktrace_recording *ktrace_recording_t;
 typedef struct ktrace_file *ktrace_file_t;
+typedef struct ktrace_chunk *ktrace_chunk_t;
 
 ktrace_session_t ktrace_session_create(void);
 ktrace_session_t ktrace_session_create_with_flags(uint64_t flags);
@@ -55,6 +56,12 @@ ktrace_file_t ktrace_file_open(const char *path, int writable);
 ktrace_file_t ktrace_file_open_fd(int fd, int writable);
 ktrace_file_t ktrace_file_create(void *machine, const char *path);
 void ktrace_file_close(ktrace_file_t file);
+ktrace_chunk_t ktrace_file_append_start(ktrace_file_t file, uint32_t tag,
+                                        uint16_t major_version,
+                                        uint16_t minor_version);
+int ktrace_file_append_data(ktrace_file_t file, ktrace_chunk_t chunk,
+                            const void *data, size_t size);
+int ktrace_file_append_finish(ktrace_file_t file, ktrace_chunk_t chunk);
 int ktrace_file_earliest_timestamp(ktrace_file_t file, uint64_t *timestamp);
 int ktrace_file_latest_timestamp(ktrace_file_t file, uint64_t *timestamp);
 

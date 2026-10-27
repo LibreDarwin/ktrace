@@ -8,6 +8,12 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+struct test_chunk_header {
+    unsigned int tag;
+    unsigned int version;
+    unsigned long long payload_length;
+};
+
 int main(void) {
     char path[] = "/tmp/libredarwin-ktrace.XXXXXX";
     ktrace_session_t session = ktrace_session_create();
@@ -24,7 +30,18 @@ int main(void) {
     ktrace_file_close(trace_file);
     trace_file = ktrace_file_create(NULL, path);
     assert(trace_file != NULL);
+    ktrace_chunk_t chunk = ktrace_file_append_start(trace_file, 0x8013, 1, 0);
+    assert(chunk != NULL);
+    assert(ktrace_file_append_data(trace_file, chunk, "abc", 3) == 0);
+    assert(ktrace_file_append_finish(trace_file, chunk) == 0);
     ktrace_file_close(trace_file);
+    fd = open(path, O_RDONLY);
+    assert(fd >= 0);
+    struct test_chunk_header header;
+    assert(read(fd, &header, sizeof(header)) == (ssize_t)sizeof(header));
+    assert(header.tag == 0x8013);
+    assert(header.version == 1);
+    assert(header.payload_length == 3);
     assert(ktrace_set_buffer_size(session, 64) == 0);
     assert(ktrace_set_continuous_timestamps(session, 1) == 0);
     assert(ktrace_set_thread_groups_enabled(session, 1) == 0);
@@ -36,7 +53,7 @@ int main(void) {
     assert(ktrace_session_get_event_names_enabled(session) == 1);
     assert(ktrace_session_getting_event_names_from_system(session) == 0);
     assert(ktrace_session_has_callbacks(session) == 0);
-    file = fdopen(dup(fd), "w");
+    file = fdopen(dup(fd), "r");
     assert(file != NULL);
     assert(ktrace_set_file(session, file) == 0);
     trace_file = ktrace_file_open_fd(fd, 0);

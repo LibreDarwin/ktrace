@@ -14,6 +14,8 @@ The initial implementation provides the confirmed C session and output ABI:
 - Opaque ktrace-file open/close and timestamp query boundary. Timestamp
   decoding remains `ENOTSUP` until the on-disk chunk format is reconstructed.
 - Confirmed `ktrace_file_create(void *, const char *)` ownership boundary.
+- 16-byte chunk append lifecycle: tag, packed version, payload length, and
+  payload. This matches the observed chunk boundaries in `local/trace001.ktrace`.
 - Confirmed scalar session controls for buffer size, mode, event names,
   timestamping, coprocessor tracing, thread groups, existing traces, vnode
   paths, and postprocessing.
@@ -23,4 +25,5 @@ The initial implementation provides the confirmed C session and output ABI:
 Event collection, kdebug configuration, postprocessing, and symbolication are
 not implemented until their private layouts and callback contracts are
 reconstructed from call sites. The implemented session layer deliberately
-does not emit guessed trace bytes.
+does not emit guessed semantic trace bytes; chunk append writes only the
+observed generic chunk envelope and caller-supplied payload.

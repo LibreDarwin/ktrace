@@ -40,6 +40,20 @@ struct ktrace_file {
     int fd;
     int owns_fd;
     int writable;
+    ktrace_chunk_t active_chunk;
+};
+
+struct ktrace_chunk {
+    off_t header_offset;
+    uint64_t payload_length;
+    uint32_t tag;
+    uint32_t version;
+};
+
+struct ktrace_chunk_header {
+    uint32_t tag;
+    uint32_t version;
+    uint64_t payload_length;
 };
 
 ktrace_session_t ktrace_session_create_with_flags(uint64_t flags) {
@@ -251,8 +265,23 @@ ktrace_file_t ktrace_file_open(const char *path, int writable) {
 }
 
 ktrace_file_t ktrace_file_create(void *machine, const char *path) {
+    int fd;
+    struct ktrace_file *file;
     (void)machine;
-    return ktrace_file_open(path, 1);
+    if (path == NULL) {
+        errno = EINVAL;
+        return NULL;
+    }
+    fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0)
+        return NULL;
+    file = ktrace_file_open_fd(fd, 1);
+    if (file == NULL) {
+        close(fd);
+        return NULL;
+    }
+    file->owns_fd = 1;
+    return file;
 }
 
 void ktrace_file_close(ktrace_file_t file) {
@@ -261,6 +290,67 @@ void ktrace_file_close(ktrace_file_t file) {
     if (file->owns_fd)
         close(file->fd);
     free(file);
+}
+
+ktrace_chunk_t ktrace_file_append_start(ktrace_file_t file, uint32_t tag,
+                                        uint16_t major_version,
+                                        uint16_t minor_version) {
+    struct ktrace_chunk_header header = {
+        .tag = tag,
+        .version = (uint32_t)major_version | ((uint32_t)minor_version << 16),
+        .payload_length = 0,
+    };
+    struct ktrace_chunk *chunk;
+    off_t offset;
+    if (file == NULL || !file->writable || file->active_chunk != NULL)
+        return NULL;
+    offset = lseek(file->fd, 0, SEEK_END);
+    if (offset < 0 || write(file->fd, &header, sizeof(header)) != (ssize_t)sizeof(header))
+        return NULL;
+    chunk = calloc(1, sizeof(*chunk));
+    if (chunk == NULL)
+        return NULL;
+    chunk->header_offset = offset;
+    chunk->tag = tag;
+    chunk->version = header.version;
+    file->active_chunk = chunk;
+    return chunk;
+}
+
+int ktrace_file_append_data(ktrace_file_t file, ktrace_chunk_t chunk,
+                            const void *data, size_t size) {
+    ssize_t written;
+    if (file == NULL || chunk == NULL || file->active_chunk != chunk ||
+        (data == NULL && size != 0))
+        return EINVAL;
+    if (!file->writable)
+        return EBADF;
+    written = write(file->fd, data, size);
+    if (written < 0)
+        return errno;
+    if ((size_t)written != size)
+        return EIO;
+    chunk->payload_length += size;
+    return 0;
+}
+
+int ktrace_file_append_finish(ktrace_file_t file, ktrace_chunk_t chunk) {
+    struct ktrace_chunk_header header;
+    if (file == NULL || chunk == NULL || file->active_chunk != chunk)
+        return EINVAL;
+    header.tag = chunk->tag;
+    header.version = chunk->version;
+    header.payload_length = chunk->payload_length;
+    if (pwrite(file->fd, &header, sizeof(header), chunk->header_offset) !=
+        (ssize_t)sizeof(header)) {
+        int error = errno != 0 ? errno : EIO;
+        file->active_chunk = NULL;
+        free(chunk);
+        return error;
+    }
+    file->active_chunk = NULL;
+    free(chunk);
+    return 0;
 }
 
 int ktrace_file_earliest_timestamp(ktrace_file_t file, uint64_t *timestamp) {

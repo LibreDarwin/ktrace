@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 struct ktrace_session {
+    uint64_t flags;
     int output_fd;
     int owns_output_fd;
     int started;
@@ -35,11 +36,17 @@ struct ktrace_recording {
     FILE *stderr_stream;
 };
 
-ktrace_session_t ktrace_session_create(void) {
+ktrace_session_t ktrace_session_create_with_flags(uint64_t flags) {
     struct ktrace_session *session = calloc(1, sizeof(*session));
-    if (session != NULL)
+    if (session != NULL) {
         session->output_fd = -1;
+        session->flags = flags;
+    }
     return session;
+}
+
+ktrace_session_t ktrace_session_create(void) {
+    return ktrace_session_create_with_flags(0);
 }
 
 void ktrace_session_free(ktrace_session_t session) {
@@ -70,6 +77,23 @@ int ktrace_session_set_default_event_names_enabled(ktrace_session_t session,
 int ktrace_session_set_event_names_enabled(ktrace_session_t session, int enabled) {
     return session == NULL ? EINVAL :
         ktrace_set_bool(&session->event_names_enabled, enabled);
+}
+
+int ktrace_session_get_default_event_names_enabled(ktrace_session_t session) {
+    return session == NULL ? 0 : session->default_event_names_enabled;
+}
+
+int ktrace_session_get_event_names_enabled(ktrace_session_t session) {
+    return session == NULL ? 0 : session->event_names_enabled;
+}
+
+int ktrace_session_getting_event_names_from_system(ktrace_session_t session) {
+    return session == NULL ? 0 : session->event_names_enabled == 0;
+}
+
+int ktrace_session_has_callbacks(ktrace_session_t session) {
+    (void)session;
+    return 0;
 }
 
 int ktrace_set_buffer_size(ktrace_session_t session, uint64_t size) {

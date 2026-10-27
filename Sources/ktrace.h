@@ -16,6 +16,7 @@ typedef struct ktrace_session *ktrace_session_t;
 typedef struct ktrace_recording *ktrace_recording_t;
 
 ktrace_session_t ktrace_session_create(void);
+ktrace_session_t ktrace_session_create_with_flags(uint64_t flags);
 void ktrace_session_destroy(ktrace_session_t session);
 void ktrace_session_free(ktrace_session_t session);
 
@@ -26,6 +27,10 @@ int ktrace_session_set_default_event_names_enabled(ktrace_session_t session,
                                                    int enabled);
 int ktrace_session_set_event_names_enabled(ktrace_session_t session,
                                            int enabled);
+int ktrace_session_get_default_event_names_enabled(ktrace_session_t session);
+int ktrace_session_get_event_names_enabled(ktrace_session_t session);
+int ktrace_session_getting_event_names_from_system(ktrace_session_t session);
+int ktrace_session_has_callbacks(ktrace_session_t session);
 int ktrace_set_buffer_size(ktrace_session_t session, uint64_t size);
 int ktrace_set_continuous_timestamps(ktrace_session_t session, int enabled);
 int ktrace_set_coprocessor_tracing_enabled(ktrace_session_t session, int enabled);

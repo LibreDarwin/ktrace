@@ -11,6 +11,7 @@ typedef struct ktrace_session *ktrace_session_t;
 typedef struct ktrace_recording *ktrace_recording_t;
 
 ktrace_session_t ktrace_session_create(void);
+ktrace_session_t ktrace_session_create_with_flags(uint64_t flags);
 void ktrace_session_destroy(ktrace_session_t);
 int ktrace_start(ktrace_session_t);
 int ktrace_end(ktrace_session_t, int flush);
@@ -21,6 +22,8 @@ int ktrace_start_writing_file(ktrace_session_t, FILE *, int fd_or_mode,
                               uint64_t flags, uint64_t options);
 ktrace_recording_t ktrace_recording_create(const char *, int flags);
 void ktrace_recording_set_streams(ktrace_recording_t, FILE *, FILE *);
+int ktrace_session_get_default_event_names_enabled(ktrace_session_t);
+int ktrace_session_get_event_names_enabled(ktrace_session_t);
 ```
 
 The scalar session controls are called with the session in `x0` and their

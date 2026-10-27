@@ -5,10 +5,12 @@ This repository contains the clean-room `ktrace.framework` reconstruction.
 The initial implementation provides the confirmed C session and output ABI:
 
 - `ktrace_session_create`, `ktrace_session_destroy`, and `ktrace_session_free`
+- `ktrace_session_create_with_flags`
 - `ktrace_start` and `ktrace_end`
 - `ktrace_start_writing_path`, `ktrace_start_writing_fd`, and
   `ktrace_start_writing_file`
 - `ktrace_set_file` and `ktrace_set_ktrace_file` output-object setters
+- Event-name session getters and setters
 - Confirmed scalar session controls for buffer size, mode, event names,
   timestamping, coprocessor tracing, thread groups, existing traces, vnode
   paths, and postprocessing.

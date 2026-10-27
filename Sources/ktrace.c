@@ -23,6 +23,9 @@ struct ktrace_session {
     int thread_groups_enabled;
     int use_existing;
     int vnode_paths_enabled;
+    FILE *file;
+    void *ktrace_file;
+    int close_ktrace_file;
 };
 
 struct ktrace_recording {
@@ -95,6 +98,25 @@ int ktrace_set_mode(ktrace_session_t session, int mode) {
 
 int ktrace_set_no_postprocessing(ktrace_session_t session) {
     return session == NULL ? EINVAL : ktrace_set_bool(&session->no_postprocessing, 1);
+}
+
+int ktrace_set_file(ktrace_session_t session, FILE *file) {
+    if (session == NULL || file == NULL)
+        return EINVAL;
+    if (session->started)
+        return EBUSY;
+    session->file = file;
+    return 0;
+}
+
+int ktrace_set_ktrace_file(ktrace_session_t session, void *file, int close_file) {
+    if (session == NULL || file == NULL)
+        return EINVAL;
+    if (session->started)
+        return EBUSY;
+    session->ktrace_file = file;
+    session->close_ktrace_file = close_file != 0;
+    return 0;
 }
 
 int ktrace_set_thread_groups_enabled(ktrace_session_t session, int enabled) {

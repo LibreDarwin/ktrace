@@ -37,6 +37,8 @@ int ktrace_set_thread_groups_enabled(ktrace_session_t, int);
 int ktrace_set_vnode_paths_enabled(ktrace_session_t, int);
 int ktrace_set_no_postprocessing(ktrace_session_t);
 int ktrace_set_use_existing(ktrace_session_t);
+int ktrace_set_file(ktrace_session_t, FILE *);
+int ktrace_set_ktrace_file(ktrace_session_t, void *, int close_file);
 ```
 
 Callback-bearing setters remain unimplemented until their block layouts and

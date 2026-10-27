@@ -31,6 +31,8 @@ int ktrace_set_continuous_timestamps(ktrace_session_t session, int enabled);
 int ktrace_set_coprocessor_tracing_enabled(ktrace_session_t session, int enabled);
 int ktrace_set_mode(ktrace_session_t session, int mode);
 int ktrace_set_no_postprocessing(ktrace_session_t session);
+int ktrace_set_file(ktrace_session_t session, FILE *file);
+int ktrace_set_ktrace_file(ktrace_session_t session, void *file, int close_file);
 int ktrace_set_thread_groups_enabled(ktrace_session_t session, int enabled);
 int ktrace_set_use_existing(ktrace_session_t session);
 int ktrace_set_vnode_paths_enabled(ktrace_session_t session, int enabled);

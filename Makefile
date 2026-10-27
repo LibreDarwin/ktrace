@@ -8,18 +8,26 @@ CFLAGS += -isysroot "$(SDK)" -I Sources
 BUILD_DIR ?= build
 
 LIB := $(BUILD_DIR)/libktrace.dylib
+STATIC_LIB := $(BUILD_DIR)/libktrace.a
+OBJECT := $(BUILD_DIR)/ktrace.o
 TEST := $(BUILD_DIR)/ktrace_test
 
-all: $(LIB)
+all: $(LIB) $(STATIC_LIB)
 
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
 
-$(LIB): Sources/ktrace.c Sources/ktrace.h $(BUILD_DIR)
-	$(CC) $(CFLAGS) -fPIC -dynamiclib -install_name /usr/lib/libktrace.dylib -o $@ Sources/ktrace.c
+$(OBJECT): Sources/ktrace.c Sources/ktrace.h $(BUILD_DIR)
+	$(CC) $(CFLAGS) -fPIC -c -o $@ Sources/ktrace.c
 
-$(TEST): Tests/ktrace_test.c Sources/ktrace.c Sources/ktrace.h $(BUILD_DIR)
-	$(CC) $(CFLAGS) -o $@ Tests/ktrace_test.c Sources/ktrace.c
+$(LIB): $(OBJECT)
+	$(CC) $(CFLAGS) -dynamiclib -install_name /usr/lib/libktrace.dylib -o $@ $^
+
+$(STATIC_LIB): $(OBJECT)
+	ar rcs $@ $^
+
+$(TEST): Tests/ktrace_test.c $(OBJECT) Sources/ktrace.h $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ Tests/ktrace_test.c $(OBJECT)
 
 test: $(TEST)
 	$(TEST)

@@ -250,6 +250,11 @@ ktrace_file_t ktrace_file_open(const char *path, int writable) {
     return file;
 }
 
+ktrace_file_t ktrace_file_create(void *machine, const char *path) {
+    (void)machine;
+    return ktrace_file_open(path, 1);
+}
+
 void ktrace_file_close(ktrace_file_t file) {
     if (file == NULL)
         return;

@@ -24,6 +24,7 @@ ktrace_recording_t ktrace_recording_create(const char *, int flags);
 void ktrace_recording_set_streams(ktrace_recording_t, FILE *, FILE *);
 typedef struct ktrace_file *ktrace_file_t;
 ktrace_file_t ktrace_file_open(const char *, int writable);
+ktrace_file_t ktrace_file_create(void *, const char *);
 void ktrace_file_close(ktrace_file_t);
 int ktrace_file_earliest_timestamp(ktrace_file_t, uint64_t *);
 int ktrace_file_latest_timestamp(ktrace_file_t, uint64_t *);

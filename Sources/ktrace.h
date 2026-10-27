@@ -53,6 +53,7 @@ int ktrace_start_writing_file(ktrace_session_t session, FILE *file,
 
 ktrace_file_t ktrace_file_open(const char *path, int writable);
 ktrace_file_t ktrace_file_open_fd(int fd, int writable);
+ktrace_file_t ktrace_file_create(void *machine, const char *path);
 void ktrace_file_close(ktrace_file_t file);
 int ktrace_file_earliest_timestamp(ktrace_file_t file, uint64_t *timestamp);
 int ktrace_file_latest_timestamp(ktrace_file_t file, uint64_t *timestamp);

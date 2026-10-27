@@ -22,6 +22,9 @@ int main(void) {
     assert(trace_file != NULL);
     assert(ktrace_file_earliest_timestamp(trace_file, NULL) == EINVAL);
     ktrace_file_close(trace_file);
+    trace_file = ktrace_file_create(NULL, path);
+    assert(trace_file != NULL);
+    ktrace_file_close(trace_file);
     assert(ktrace_set_buffer_size(session, 64) == 0);
     assert(ktrace_set_continuous_timestamps(session, 1) == 0);
     assert(ktrace_set_thread_groups_enabled(session, 1) == 0);

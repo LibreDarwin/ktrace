@@ -56,6 +56,15 @@ struct ktrace_chunk_header {
     uint64_t payload_length;
 };
 
+static void ktrace_session_close_file(ktrace_session_t session) {
+    if (session == NULL || session->ktrace_file == NULL)
+        return;
+    if (session->close_ktrace_file)
+        ktrace_file_close(session->ktrace_file);
+    session->ktrace_file = NULL;
+    session->close_ktrace_file = 0;
+}
+
 static void ktrace_file_discard_active_chunk(ktrace_file_t file) {
     if (file == NULL || file->active_chunk == NULL)
         return;
@@ -83,6 +92,7 @@ void ktrace_session_free(ktrace_session_t session) {
         return;
     if (session->output_fd >= 0 && session->owns_output_fd)
         close(session->output_fd);
+    ktrace_session_close_file(session);
     free(session);
 }
 
@@ -429,6 +439,7 @@ int ktrace_end(ktrace_session_t session, int flush) {
         session->output_fd = -1;
         session->owns_output_fd = 0;
     }
+    ktrace_session_close_file(session);
     return result;
 }
 

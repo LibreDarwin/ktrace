@@ -18,11 +18,13 @@ int main(void) {
     char path[] = "/tmp/libredarwin-ktrace.XXXXXX";
     ktrace_session_t session = ktrace_session_create();
     ktrace_session_t flagged_session = ktrace_session_create_with_flags(0);
+    ktrace_session_t owned_session = ktrace_session_create();
     ktrace_file_t trace_file;
     FILE *file;
     int fd = mkstemp(path);
     assert(session != NULL);
     assert(flagged_session != NULL);
+    assert(owned_session != NULL);
     assert(fd >= 0);
     trace_file = ktrace_file_open(path, 0);
     assert(trace_file != NULL);
@@ -73,6 +75,11 @@ int main(void) {
     fd = open(path, O_RDONLY);
     assert(fd >= 0);
     assert(lseek(fd, 0, SEEK_END) == 0);
+    trace_file = ktrace_file_create(NULL, path);
+    assert(trace_file != NULL);
+    assert(ktrace_set_ktrace_file(owned_session, trace_file, 1) == 0);
+    assert(ktrace_start(owned_session) == 0);
+    assert(ktrace_end(owned_session, 0) == 0);
     assert(ktrace_set_buffer_size(session, 64) == 0);
     assert(ktrace_set_continuous_timestamps(session, 1) == 0);
     assert(ktrace_set_thread_groups_enabled(session, 1) == 0);
@@ -98,6 +105,7 @@ int main(void) {
     assert(ktrace_end(session, 0) == EINVAL);
     ktrace_session_destroy(session);
     ktrace_session_free(flagged_session);
+    ktrace_session_free(owned_session);
     fclose(file);
     close(fd);
     unlink(path);

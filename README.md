@@ -11,6 +11,8 @@ The initial implementation provides the confirmed C session and output ABI:
   `ktrace_start_writing_file`
 - `ktrace_set_file` and `ktrace_set_ktrace_file` output-object setters
 - Event-name session getters and setters
+- Opaque ktrace-file open/close and timestamp query boundary. Timestamp
+  decoding remains `ENOTSUP` until the on-disk chunk format is reconstructed.
 - Confirmed scalar session controls for buffer size, mode, event names,
   timestamping, coprocessor tracing, thread groups, existing traces, vnode
   paths, and postprocessing.

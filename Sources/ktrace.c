@@ -36,6 +36,12 @@ struct ktrace_recording {
     FILE *stderr_stream;
 };
 
+struct ktrace_file {
+    int fd;
+    int owns_fd;
+    int writable;
+};
+
 ktrace_session_t ktrace_session_create_with_flags(uint64_t flags) {
     struct ktrace_session *session = calloc(1, sizeof(*session));
     if (session != NULL) {
@@ -133,7 +139,8 @@ int ktrace_set_file(ktrace_session_t session, FILE *file) {
     return 0;
 }
 
-int ktrace_set_ktrace_file(ktrace_session_t session, void *file, int close_file) {
+int ktrace_set_ktrace_file(ktrace_session_t session, ktrace_file_t file,
+                           int close_file) {
     if (session == NULL || file == NULL)
         return EINVAL;
     if (session->started)
@@ -208,6 +215,61 @@ int ktrace_start_writing_file(ktrace_session_t session, FILE *file,
     if (fd < 0)
         return errno;
     return ktrace_set_output(session, fd, 0);
+}
+
+ktrace_file_t ktrace_file_open_fd(int fd, int writable) {
+    struct ktrace_file *file;
+    if (fd < 0) {
+        errno = EBADF;
+        return NULL;
+    }
+    file = calloc(1, sizeof(*file));
+    if (file == NULL)
+        return NULL;
+    file->fd = fd;
+    file->writable = writable != 0;
+    return file;
+}
+
+ktrace_file_t ktrace_file_open(const char *path, int writable) {
+    int fd;
+    struct ktrace_file *file;
+    if (path == NULL) {
+        errno = EINVAL;
+        return NULL;
+    }
+    fd = open(path, writable ? O_RDWR : O_RDONLY);
+    if (fd < 0)
+        return NULL;
+    file = ktrace_file_open_fd(fd, writable);
+    if (file == NULL) {
+        close(fd);
+        return NULL;
+    }
+    file->owns_fd = 1;
+    return file;
+}
+
+void ktrace_file_close(ktrace_file_t file) {
+    if (file == NULL)
+        return;
+    if (file->owns_fd)
+        close(file->fd);
+    free(file);
+}
+
+int ktrace_file_earliest_timestamp(ktrace_file_t file, uint64_t *timestamp) {
+    if (file == NULL || timestamp == NULL)
+        return EINVAL;
+    *timestamp = 0;
+    return ENOTSUP;
+}
+
+int ktrace_file_latest_timestamp(ktrace_file_t file, uint64_t *timestamp) {
+    if (file == NULL || timestamp == NULL)
+        return EINVAL;
+    *timestamp = 0;
+    return ENOTSUP;
 }
 
 int ktrace_start(ktrace_session_t session) {

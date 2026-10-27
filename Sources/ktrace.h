@@ -14,6 +14,7 @@ extern "C" {
 
 typedef struct ktrace_session *ktrace_session_t;
 typedef struct ktrace_recording *ktrace_recording_t;
+typedef struct ktrace_file *ktrace_file_t;
 
 ktrace_session_t ktrace_session_create(void);
 ktrace_session_t ktrace_session_create_with_flags(uint64_t flags);
@@ -37,7 +38,8 @@ int ktrace_set_coprocessor_tracing_enabled(ktrace_session_t session, int enabled
 int ktrace_set_mode(ktrace_session_t session, int mode);
 int ktrace_set_no_postprocessing(ktrace_session_t session);
 int ktrace_set_file(ktrace_session_t session, FILE *file);
-int ktrace_set_ktrace_file(ktrace_session_t session, void *file, int close_file);
+int ktrace_set_ktrace_file(ktrace_session_t session, ktrace_file_t file,
+                           int close_file);
 int ktrace_set_thread_groups_enabled(ktrace_session_t session, int enabled);
 int ktrace_set_use_existing(ktrace_session_t session);
 int ktrace_set_vnode_paths_enabled(ktrace_session_t session, int enabled);
@@ -48,6 +50,12 @@ int ktrace_start_writing_fd(ktrace_session_t session, int close_fd, int fd,
                             uint64_t flags, uint64_t options);
 int ktrace_start_writing_file(ktrace_session_t session, FILE *file,
                               int fd_or_mode, uint64_t flags, uint64_t options);
+
+ktrace_file_t ktrace_file_open(const char *path, int writable);
+ktrace_file_t ktrace_file_open_fd(int fd, int writable);
+void ktrace_file_close(ktrace_file_t file);
+int ktrace_file_earliest_timestamp(ktrace_file_t file, uint64_t *timestamp);
+int ktrace_file_latest_timestamp(ktrace_file_t file, uint64_t *timestamp);
 
 ktrace_recording_t ktrace_recording_create(const char *name, int flags);
 void ktrace_recording_destroy(ktrace_recording_t recording);

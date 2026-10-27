@@ -34,6 +34,10 @@ int main(void) {
     assert(chunk != NULL);
     assert(ktrace_file_append_data(trace_file, chunk, "abc", 3) == 0);
     assert(ktrace_file_append_finish(trace_file, chunk) == 0);
+    chunk = ktrace_file_append_start(trace_file, 0x8014, 2, 3);
+    assert(chunk != NULL);
+    assert(ktrace_file_append_data(trace_file, chunk, "de", 2) == 0);
+    assert(ktrace_file_append_finish(trace_file, chunk) == 0);
     ktrace_file_close(trace_file);
     fd = open(path, O_RDONLY);
     assert(fd >= 0);
@@ -42,6 +46,11 @@ int main(void) {
     assert(header.tag == 0x8013);
     assert(header.version == 1);
     assert(header.payload_length == 3);
+    assert(lseek(fd, sizeof(header) + 3, SEEK_SET) == (off_t)(sizeof(header) + 3));
+    assert(read(fd, &header, sizeof(header)) == (ssize_t)sizeof(header));
+    assert(header.tag == 0x8014);
+    assert(header.version == (2U | (3U << 16)));
+    assert(header.payload_length == 2);
     assert(ktrace_set_buffer_size(session, 64) == 0);
     assert(ktrace_set_continuous_timestamps(session, 1) == 0);
     assert(ktrace_set_thread_groups_enabled(session, 1) == 0);

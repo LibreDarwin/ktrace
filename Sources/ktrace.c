@@ -287,6 +287,7 @@ ktrace_file_t ktrace_file_create(void *machine, const char *path) {
 void ktrace_file_close(ktrace_file_t file) {
     if (file == NULL)
         return;
+    free(file->active_chunk);
     if (file->owns_fd)
         close(file->fd);
     free(file);
@@ -308,8 +309,10 @@ ktrace_chunk_t ktrace_file_append_start(ktrace_file_t file, uint32_t tag,
     if (offset < 0 || write(file->fd, &header, sizeof(header)) != (ssize_t)sizeof(header))
         return NULL;
     chunk = calloc(1, sizeof(*chunk));
-    if (chunk == NULL)
+    if (chunk == NULL) {
+        ftruncate(file->fd, offset);
         return NULL;
+    }
     chunk->header_offset = offset;
     chunk->tag = tag;
     chunk->version = header.version;
@@ -319,17 +322,22 @@ ktrace_chunk_t ktrace_file_append_start(ktrace_file_t file, uint32_t tag,
 
 int ktrace_file_append_data(ktrace_file_t file, ktrace_chunk_t chunk,
                             const void *data, size_t size) {
-    ssize_t written;
+    const char *bytes = data;
+    size_t remaining = size;
     if (file == NULL || chunk == NULL || file->active_chunk != chunk ||
         (data == NULL && size != 0))
         return EINVAL;
     if (!file->writable)
         return EBADF;
-    written = write(file->fd, data, size);
-    if (written < 0)
-        return errno;
-    if ((size_t)written != size)
-        return EIO;
+    while (remaining != 0) {
+        ssize_t written = write(file->fd, bytes, remaining);
+        if (written < 0)
+            return errno;
+        if (written == 0)
+            return EIO;
+        bytes += written;
+        remaining -= (size_t)written;
+    }
     chunk->payload_length += size;
     return 0;
 }

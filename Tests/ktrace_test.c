@@ -63,6 +63,16 @@ int main(void) {
     assert(header.tag == 0x8002);
     assert(header.version == 1);
     assert(header.payload_length == sizeof(stackshot));
+    close(fd);
+    trace_file = ktrace_file_create(NULL, path);
+    assert(trace_file != NULL);
+    chunk = ktrace_file_append_start(trace_file, 0x8002, 1, 0);
+    assert(chunk != NULL);
+    assert(ktrace_file_append_data(trace_file, chunk, "partial", 7) == 0);
+    ktrace_file_close(trace_file);
+    fd = open(path, O_RDONLY);
+    assert(fd >= 0);
+    assert(lseek(fd, 0, SEEK_END) == 0);
     assert(ktrace_set_buffer_size(session, 64) == 0);
     assert(ktrace_set_continuous_timestamps(session, 1) == 0);
     assert(ktrace_set_thread_groups_enabled(session, 1) == 0);

@@ -56,6 +56,15 @@ struct ktrace_chunk_header {
     uint64_t payload_length;
 };
 
+static void ktrace_file_discard_active_chunk(ktrace_file_t file) {
+    if (file == NULL || file->active_chunk == NULL)
+        return;
+    if (file->writable)
+        (void)ftruncate(file->fd, file->active_chunk->header_offset);
+    free(file->active_chunk);
+    file->active_chunk = NULL;
+}
+
 ktrace_session_t ktrace_session_create_with_flags(uint64_t flags) {
     struct ktrace_session *session = calloc(1, sizeof(*session));
     if (session != NULL) {
@@ -287,7 +296,7 @@ ktrace_file_t ktrace_file_create(void *machine, const char *path) {
 void ktrace_file_close(ktrace_file_t file) {
     if (file == NULL)
         return;
-    free(file->active_chunk);
+    ktrace_file_discard_active_chunk(file);
     if (file->owns_fd)
         close(file->fd);
     free(file);
@@ -352,8 +361,7 @@ int ktrace_file_append_finish(ktrace_file_t file, ktrace_chunk_t chunk) {
     if (pwrite(file->fd, &header, sizeof(header), chunk->header_offset) !=
         (ssize_t)sizeof(header)) {
         int error = errno != 0 ? errno : EIO;
-        file->active_chunk = NULL;
-        free(chunk);
+        ktrace_file_discard_active_chunk(file);
         return error;
     }
     file->active_chunk = NULL;

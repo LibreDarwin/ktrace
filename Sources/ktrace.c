@@ -56,14 +56,16 @@ static int ktrace_set_output(ktrace_session_t session, int fd, int owns_fd) {
 int ktrace_start_writing_path(ktrace_session_t session, const char *path,
                               mode_t mode) {
     int fd;
+    int result;
     if (path == NULL)
         return EINVAL;
     fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, mode);
     if (fd < 0)
         return errno;
-    if (ktrace_set_output(session, fd, 1) != 0) {
+    result = ktrace_set_output(session, fd, 1);
+    if (result != 0) {
         close(fd);
-        return EBUSY;
+        return result;
     }
     return 0;
 }

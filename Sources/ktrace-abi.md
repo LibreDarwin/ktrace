@@ -31,6 +31,7 @@ int ktrace_file_latest_timestamp(ktrace_file_t, uint64_t *);
 ktrace_chunk_t ktrace_file_append_start(ktrace_file_t, uint32_t, uint16_t, uint16_t);
 int ktrace_file_append_data(ktrace_file_t, ktrace_chunk_t, const void *, size_t);
 int ktrace_file_append_finish(ktrace_file_t, ktrace_chunk_t);
+int ktrace_file_append_stackshot(ktrace_file_t, const void *, size_t);
 int ktrace_session_get_default_event_names_enabled(ktrace_session_t);
 int ktrace_session_get_event_names_enabled(ktrace_session_t);
 ```

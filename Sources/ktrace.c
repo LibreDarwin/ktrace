@@ -361,6 +361,26 @@ int ktrace_file_append_finish(ktrace_file_t file, ktrace_chunk_t chunk) {
     return 0;
 }
 
+int ktrace_file_append_stackshot(ktrace_file_t file, const void *data, size_t size) {
+    static const unsigned char kcdata_magic[] = {0x07, 0x58, 0xa2, 0x59};
+    ktrace_chunk_t chunk;
+    int result;
+    if (file == NULL || data == NULL || size < sizeof(kcdata_magic) ||
+        memcmp(data, kcdata_magic, sizeof(kcdata_magic)) != 0)
+        return EINVAL;
+    chunk = ktrace_file_append_start(file, 0x8002, 1, 0);
+    if (chunk == NULL)
+        return errno != 0 ? errno : EIO;
+    result = ktrace_file_append_data(file, chunk, data, size);
+    if (result == 0)
+        result = ktrace_file_append_finish(file, chunk);
+    else {
+        file->active_chunk = NULL;
+        free(chunk);
+    }
+    return result;
+}
+
 int ktrace_file_earliest_timestamp(ktrace_file_t file, uint64_t *timestamp) {
     if (file == NULL || timestamp == NULL)
         return EINVAL;

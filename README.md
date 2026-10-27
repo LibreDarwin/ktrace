@@ -16,6 +16,8 @@ The initial implementation provides the confirmed C session and output ABI:
 - Confirmed `ktrace_file_create(void *, const char *)` ownership boundary.
 - 16-byte chunk append lifecycle: tag, packed version, payload length, and
   payload. This matches the observed chunk boundaries in `local/trace001.ktrace`.
+- Stackshot append helper using observed tag `0x8002` and kcdata magic
+  `0x59a25807`.
 - Confirmed scalar session controls for buffer size, mode, event names,
   timestamping, coprocessor tracing, thread groups, existing traces, vnode
   paths, and postprocessing.

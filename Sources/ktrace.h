@@ -62,6 +62,7 @@ ktrace_chunk_t ktrace_file_append_start(ktrace_file_t file, uint32_t tag,
 int ktrace_file_append_data(ktrace_file_t file, ktrace_chunk_t chunk,
                             const void *data, size_t size);
 int ktrace_file_append_finish(ktrace_file_t file, ktrace_chunk_t chunk);
+int ktrace_file_append_stackshot(ktrace_file_t file, const void *data, size_t size);
 int ktrace_file_earliest_timestamp(ktrace_file_t file, uint64_t *timestamp);
 int ktrace_file_latest_timestamp(ktrace_file_t file, uint64_t *timestamp);
 

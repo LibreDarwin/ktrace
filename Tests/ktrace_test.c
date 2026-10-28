@@ -161,6 +161,15 @@ int main(void) {
     assert(timestamp_value == 7);
     assert(ktrace_file_latest_timestamp(trace_file, &timestamp_value) == 0);
     assert(timestamp_value == 7);
+    {
+        struct timeval walltime;
+        assert(ktrace_file_earliest_walltime(trace_file, &walltime) == 0);
+        assert(walltime.tv_sec > 0);
+        assert(walltime.tv_usec >= 0 && walltime.tv_usec < 1000000);
+        assert(ktrace_file_latest_walltime(trace_file, &walltime) == 0);
+        assert(walltime.tv_sec > 0);
+        assert(walltime.tv_usec >= 0 && walltime.tv_usec < 1000000);
+    }
     ktrace_file_close(trace_file);
     trace_file = ktrace_file_create(NULL, path);
     assert(trace_file != NULL);

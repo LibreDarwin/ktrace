@@ -33,6 +33,8 @@ int ktrace_file_latest_timestamp(ktrace_file_t, uint64_t *);
 int ktrace_file_timebase(ktrace_file_t, uint32_t *, uint32_t *);
 int ktrace_file_supports_continuous_time(ktrace_file_t);
 int ktrace_file_machtime_to_walltime(ktrace_file_t, struct timeval *, uint64_t);
+int ktrace_file_earliest_walltime(ktrace_file_t, struct timeval *);
+int ktrace_file_latest_walltime(ktrace_file_t, struct timeval *);
 int ktrace_file_uuid(ktrace_file_t, unsigned char uuid[16]);
 int64_t ktrace_file_ktrace_event_count(ktrace_file_t);
 int ktrace_file_is_64_bit(ktrace_file_t);

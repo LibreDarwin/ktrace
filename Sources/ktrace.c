@@ -973,6 +973,30 @@ int ktrace_file_machtime_to_walltime(ktrace_file_t file,
     return 0;
 }
 
+int ktrace_file_earliest_walltime(ktrace_file_t file, struct timeval *walltime) {
+    uint64_t timestamp;
+    int result;
+
+    if (file == NULL || walltime == NULL)
+        return EINVAL;
+    result = ktrace_file_earliest_timestamp(file, &timestamp);
+    if (result != 0)
+        return result;
+    return ktrace_file_machtime_to_walltime(file, walltime, timestamp);
+}
+
+int ktrace_file_latest_walltime(ktrace_file_t file, struct timeval *walltime) {
+    uint64_t timestamp;
+    int result;
+
+    if (file == NULL || walltime == NULL)
+        return EINVAL;
+    result = ktrace_file_latest_timestamp(file, &timestamp);
+    if (result != 0)
+        return result;
+    return ktrace_file_machtime_to_walltime(file, walltime, timestamp);
+}
+
 int ktrace_file_uuid(ktrace_file_t file, unsigned char uuid[16]) {
     __block int found = 0;
     if (file == NULL || uuid == NULL)

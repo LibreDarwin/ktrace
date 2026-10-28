@@ -155,6 +155,16 @@ int main(void) {
     assert(trace_file != NULL);
     assert(ktrace_file_supports_continuous_time(trace_file) == 1);
     assert(ktrace_file_ktrace_event_count(trace_file) == 1);
+    {
+        __block int event_count = 0;
+        assert(ktrace_file_iterate_ktrace_events(trace_file,
+            ^int(uint32_t debugid) {
+                (void)debugid;
+                event_count++;
+                return 1;
+            }) == 0);
+        assert(event_count == 1);
+    }
     assert(ktrace_file_is_64_bit(trace_file) == 1);
     assert(ktrace_file_get_format(trace_file) == 4);
     assert(ktrace_file_earliest_timestamp(trace_file, &timestamp_value) == 0);

@@ -1065,6 +1065,51 @@ int64_t ktrace_file_ktrace_event_count(ktrace_file_t file) {
     return count;
 }
 
+int ktrace_file_iterate_ktrace_events(ktrace_file_t file,
+                                      ktrace_event_callback_t callback) {
+    int result;
+
+    if (file == NULL || callback == NULL)
+        return EINVAL;
+    result = ktrace_file_iterate(file, 0, ^int(ktrace_chunk_t chunk) {
+        const unsigned char *data;
+        uint64_t size;
+        size_t offset;
+        struct ktrace_compressor state = {0};
+
+        if (ktrace_chunk_tag(chunk) != 0x1f00)
+            return 1;
+        size = ktrace_chunk_size(chunk);
+        if (size <= 12)
+            return 1;
+        data = ktrace_chunk_map_data(chunk, 0, size);
+        if (data == NULL)
+            return 0;
+        offset = 12;
+        while (offset < size) {
+            uint64_t previous_timestamp = state.timestamp;
+            size_t consumed = ktrace_compressor_decode(&state, data + offset,
+                                                       (size_t)size - offset);
+            if (consumed == 0) {
+                if (state.timestamp != previous_timestamp &&
+                    callback((uint32_t)ktrace_load_u64(state.rows[state.row] + 40)) == 0) {
+                    ktrace_chunk_unmap_data(chunk, data, size);
+                    return 0;
+                }
+                break;
+            }
+            if (callback((uint32_t)ktrace_load_u64(state.rows[state.row] + 40)) == 0) {
+                ktrace_chunk_unmap_data(chunk, data, size);
+                return 0;
+            }
+            offset += consumed;
+        }
+        ktrace_chunk_unmap_data(chunk, data, size);
+        return 1;
+    });
+    return result;
+}
+
 int ktrace_file_is_64_bit(ktrace_file_t file) {
     return file == NULL ? 0 : 1;
 }

@@ -18,6 +18,7 @@ typedef struct ktrace_recording *ktrace_recording_t;
 typedef struct ktrace_file *ktrace_file_t;
 typedef struct ktrace_chunk *ktrace_chunk_t;
 typedef int (^ktrace_chunk_callback_t)(ktrace_chunk_t chunk);
+typedef int (^ktrace_event_callback_t)(uint32_t debugid);
 
 ktrace_session_t ktrace_session_create(void);
 ktrace_session_t ktrace_session_create_with_flags(uint64_t flags);
@@ -81,6 +82,8 @@ int ktrace_file_earliest_walltime(ktrace_file_t file, struct timeval *walltime);
 int ktrace_file_latest_walltime(ktrace_file_t file, struct timeval *walltime);
 int ktrace_file_uuid(ktrace_file_t file, unsigned char uuid[16]);
 int64_t ktrace_file_ktrace_event_count(ktrace_file_t file);
+int ktrace_file_iterate_ktrace_events(ktrace_file_t file,
+                                      ktrace_event_callback_t callback);
 int ktrace_file_is_64_bit(ktrace_file_t file);
 int ktrace_file_get_format(ktrace_file_t file);
 

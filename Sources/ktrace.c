@@ -45,11 +45,15 @@ struct ktrace_file {
 };
 
 struct ktrace_chunk {
+    struct ktrace_file *file;
     off_t rollback_offset;
     off_t header_offset;
+    off_t payload_offset;
     uint64_t payload_length;
     uint32_t tag;
     uint32_t version;
+    unsigned char *mapped_data;
+    uint64_t mapped_size;
 };
 
 struct ktrace_chunk_header {
@@ -618,6 +622,8 @@ ktrace_chunk_t ktrace_file_append_start(ktrace_file_t file, uint32_t tag,
     }
     chunk->rollback_offset = offset;
     chunk->header_offset = offset + (off_t)padding_length;
+    chunk->payload_offset = chunk->header_offset + (off_t)sizeof(header);
+    chunk->file = file;
     chunk->tag = tag;
     chunk->version = header.version;
     file->active_chunk = chunk;
@@ -662,6 +668,209 @@ int ktrace_file_append_finish(ktrace_file_t file, ktrace_chunk_t chunk) {
     file->active_chunk = NULL;
     free(chunk);
     return 0;
+}
+
+static int ktrace_file_read_chunk_header(ktrace_file_t file, off_t offset,
+                                         struct ktrace_chunk_header *header) {
+    if (pread(file->fd, header, sizeof(*header), offset) !=
+        (ssize_t)sizeof(*header))
+        return errno != 0 ? errno : EINVAL;
+    return 0;
+}
+
+static int ktrace_file_iteration_start(ktrace_file_t file, uint64_t offset,
+                                       off_t *start, off_t *end) {
+    struct stat file_stat;
+    unsigned char header[16];
+    uint64_t header_length;
+
+    if (fstat(file->fd, &file_stat) != 0)
+        return errno;
+    if (offset > (uint64_t)file_stat.st_size)
+        return EINVAL;
+    *start = (off_t)offset;
+    *end = file_stat.st_size;
+    if (offset != 0 || file_stat.st_size < (off_t)sizeof(header) ||
+        pread(file->fd, header, sizeof(header), 0) != (ssize_t)sizeof(header) ||
+        ktrace_load_u64(header) != 0x0000000155aa0300ULL)
+        return 0;
+    header_length = ktrace_load_u64(header + 8);
+    if (header_length > (uint64_t)file_stat.st_size - sizeof(header) ||
+        header_length > SIZE_MAX - sizeof(header))
+        return EINVAL;
+    *start = (off_t)(sizeof(header) + header_length);
+    return 0;
+}
+
+static ktrace_chunk_t ktrace_chunk_create(struct ktrace_file *file,
+                                          off_t header_offset,
+                                          off_t payload_offset,
+                                          const struct ktrace_chunk_header *header) {
+    struct ktrace_chunk *chunk = calloc(1, sizeof(*chunk));
+    if (chunk == NULL)
+        return NULL;
+    chunk->file = file;
+    chunk->header_offset = header_offset;
+    chunk->payload_offset = payload_offset;
+    chunk->payload_length = header->payload_length;
+    chunk->tag = header->tag;
+    chunk->version = header->version;
+    return chunk;
+}
+
+static int ktrace_file_iterate_range(ktrace_file_t file, off_t start, off_t end,
+                                     ktrace_chunk_callback_t callback) {
+    off_t offset = start;
+    while (offset < end) {
+        struct ktrace_chunk_header header;
+        off_t next;
+        off_t payload_end;
+        ktrace_chunk_t chunk;
+        int result;
+
+        if (end - offset < (off_t)sizeof(header))
+            return EINVAL;
+        result = ktrace_file_read_chunk_header(file, offset, &header);
+        if (result != 0)
+            return result;
+        if (header.payload_length > (uint64_t)(end - offset - sizeof(header)) ||
+            header.payload_length > SIZE_MAX)
+            return EINVAL;
+        payload_end = offset + (off_t)sizeof(header) + (off_t)header.payload_length;
+        next = payload_end;
+        next = (off_t)(((uint64_t)next + 7) & ~UINT64_C(7));
+        if (next > end && payload_end != end)
+            return EINVAL;
+        if (next > end)
+            next = end;
+        chunk = ktrace_chunk_create(file, offset,
+                                    offset + (off_t)sizeof(header), &header);
+        if (chunk == NULL)
+            return ENOMEM;
+        result = callback(chunk);
+        free(chunk->mapped_data);
+        free(chunk);
+        if (result == 0)
+            break;
+        offset = next;
+    }
+    return 0;
+}
+
+int ktrace_file_iterate(ktrace_file_t file, uint64_t offset,
+                        ktrace_chunk_callback_t callback) {
+    off_t start;
+    off_t end;
+    int result;
+    if (file == NULL || callback == NULL)
+        return EINVAL;
+    result = ktrace_file_iteration_start(file, offset, &start, &end);
+    if (result != 0)
+        return result;
+    return ktrace_file_iterate_range(file, start, end, callback);
+}
+
+int ktrace_file_header_iterate(ktrace_file_t file, uint64_t offset,
+                               ktrace_chunk_callback_t callback) {
+    struct stat file_stat;
+    unsigned char header[16];
+    uint64_t header_length;
+    off_t start;
+    off_t end;
+    (void)offset;
+    if (file == NULL || callback == NULL)
+        return EINVAL;
+    if (fstat(file->fd, &file_stat) != 0)
+        return errno;
+    if (file_stat.st_size < (off_t)sizeof(header) ||
+        pread(file->fd, header, sizeof(header), 0) != (ssize_t)sizeof(header) ||
+        ktrace_load_u64(header) != 0x0000000155aa0300ULL)
+        return ENOTSUP;
+    header_length = ktrace_load_u64(header + 8);
+    if (header_length > (uint64_t)file_stat.st_size - sizeof(header) ||
+        header_length > SIZE_MAX - sizeof(header))
+        return EINVAL;
+    start = sizeof(header);
+    end = start + (off_t)header_length;
+    while (start + 24 <= end) {
+        uint32_t tag;
+        uint64_t size;
+        struct ktrace_chunk_header chunk_header;
+        ktrace_chunk_t chunk;
+        int result;
+
+        if (pread(file->fd, &tag, sizeof(tag), start + 8) != sizeof(tag) ||
+            pread(file->fd, &size, sizeof(size), start + 16) != sizeof(size))
+            return EINVAL;
+        if ((tag != 0x8c00 && tag != 0x8c01 && tag != 0x1c00) ||
+            size > (uint64_t)(end - start - 24)) {
+            start += 8;
+            continue;
+        }
+        chunk_header.tag = tag;
+        chunk_header.version = 0;
+        chunk_header.payload_length = size;
+        chunk = ktrace_chunk_create(file, start, start + 24, &chunk_header);
+        if (chunk == NULL)
+            return ENOMEM;
+        result = callback(chunk);
+        free(chunk);
+        if (result == 0)
+            return 0;
+        /* KCData containers may insert framing bytes between records. */
+        start += 8;
+    }
+    return 0;
+}
+
+uint32_t ktrace_chunk_tag(ktrace_chunk_t chunk) {
+    return chunk == NULL ? 0 : chunk->tag;
+}
+
+uint16_t ktrace_chunk_version_major(ktrace_chunk_t chunk) {
+    return chunk == NULL ? 0 : (uint16_t)(chunk->version & 0x7fff);
+}
+
+uint16_t ktrace_chunk_version_minor(ktrace_chunk_t chunk) {
+    return chunk == NULL ? 0 : (uint16_t)(chunk->version >> 16);
+}
+
+uint64_t ktrace_chunk_size(ktrace_chunk_t chunk) {
+    return chunk == NULL ? 0 : chunk->payload_length;
+}
+
+uint64_t ktrace_chunk_size_t(ktrace_chunk_t chunk) {
+    return ktrace_chunk_size(chunk);
+}
+
+const void *ktrace_chunk_map_data(ktrace_chunk_t chunk, uint64_t offset,
+                                  uint64_t size) {
+    unsigned char *data;
+    if (chunk == NULL || offset > chunk->payload_length ||
+        size > chunk->payload_length - offset)
+        return NULL;
+    data = malloc(size == 0 ? 1 : (size_t)size);
+    if (data == NULL)
+        return NULL;
+    if (size != 0 && pread(chunk->file->fd, data, (size_t)size,
+                            chunk->payload_offset + (off_t)offset) !=
+                         (ssize_t)size) {
+        free(data);
+        return NULL;
+    }
+    chunk->mapped_data = data;
+    chunk->mapped_size = size;
+    return data;
+}
+
+void ktrace_chunk_unmap_data(ktrace_chunk_t chunk, const void *data,
+                             uint64_t size) {
+    (void)size;
+    if (chunk == NULL || data == NULL || data != chunk->mapped_data)
+        return;
+    free(chunk->mapped_data);
+    chunk->mapped_data = NULL;
+    chunk->mapped_size = 0;
 }
 
 int ktrace_file_append_stackshot(ktrace_file_t file, const void *data, size_t size) {

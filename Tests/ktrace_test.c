@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <string.h>
 #include <unistd.h>
 
 struct test_chunk_header {
@@ -13,6 +14,30 @@ struct test_chunk_header {
     unsigned int version;
     unsigned long long payload_length;
 };
+
+static int test_chunk_count;
+static int test_header_count;
+static int test_chunk_callback(ktrace_chunk_t chunk) {
+    const unsigned char *data;
+    test_chunk_count++;
+    assert(ktrace_chunk_tag(chunk) == (test_chunk_count == 1 ? 0x8013 : 0x8014));
+    assert(ktrace_chunk_version_major(chunk) == (test_chunk_count == 1 ? 1 : 2));
+    assert(ktrace_chunk_version_minor(chunk) == (test_chunk_count == 1 ? 0 : 3));
+    data = ktrace_chunk_map_data(chunk, 0, ktrace_chunk_size_t(chunk));
+    assert(data != NULL);
+    if (test_chunk_count == 1)
+        assert(memcmp(data, "abc", 3) == 0);
+    else
+        assert(memcmp(data, "de", 2) == 0);
+    ktrace_chunk_unmap_data(chunk, data, ktrace_chunk_size(chunk));
+    return 1;
+}
+
+static int test_header_callback(ktrace_chunk_t chunk) {
+    test_header_count++;
+    assert(ktrace_chunk_tag(chunk) == (test_header_count == 1 ? 0x8c00 : 0x8c01));
+    return 1;
+}
 
 int main(void) {
     char path[] = "/tmp/libredarwin-ktrace.XXXXXX";
@@ -41,6 +66,17 @@ int main(void) {
     assert(chunk != NULL);
     assert(ktrace_file_append_data(trace_file, chunk, "de", 2) == 0);
     assert(ktrace_file_append_finish(trace_file, chunk) == 0);
+    test_chunk_count = 0;
+    int iterate_result = ktrace_file_iterate(trace_file, 0, ^int(ktrace_chunk_t item) {
+        return test_chunk_callback(item);
+    });
+    assert(iterate_result == 0);
+    assert(test_chunk_count == 2);
+    test_header_count = 0;
+    assert(ktrace_file_header_iterate(trace_file, 0, ^int(ktrace_chunk_t item) {
+        return test_header_callback(item);
+    }) == 0);
+    assert(test_header_count == 2);
     ktrace_file_close(trace_file);
     fd = open(path, O_RDONLY);
     assert(fd >= 0);

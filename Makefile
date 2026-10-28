@@ -3,7 +3,7 @@
 
 CC ?= clang
 SDK ?= /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
-CFLAGS ?= -O2 -std=c11 -D_DARWIN_C_SOURCE -Wall -Wextra
+CFLAGS ?= -O2 -std=c11 -D_DARWIN_C_SOURCE -Wall -Wextra -fblocks
 CFLAGS += -isysroot "$(SDK)" -I Sources
 BUILD_DIR ?= build
 

@@ -16,6 +16,7 @@ typedef struct ktrace_session *ktrace_session_t;
 typedef struct ktrace_recording *ktrace_recording_t;
 typedef struct ktrace_file *ktrace_file_t;
 typedef struct ktrace_chunk *ktrace_chunk_t;
+typedef int (^ktrace_chunk_callback_t)(ktrace_chunk_t chunk);
 
 ktrace_session_t ktrace_session_create(void);
 ktrace_session_t ktrace_session_create_with_flags(uint64_t flags);
@@ -63,8 +64,22 @@ int ktrace_file_append_data(ktrace_file_t file, ktrace_chunk_t chunk,
                             const void *data, size_t size);
 int ktrace_file_append_finish(ktrace_file_t file, ktrace_chunk_t chunk);
 int ktrace_file_append_stackshot(ktrace_file_t file, const void *data, size_t size);
+int ktrace_file_iterate(ktrace_file_t file, uint64_t offset,
+                        ktrace_chunk_callback_t callback);
+int ktrace_file_header_iterate(ktrace_file_t file, uint64_t offset,
+                               ktrace_chunk_callback_t callback);
 int ktrace_file_earliest_timestamp(ktrace_file_t file, uint64_t *timestamp);
 int ktrace_file_latest_timestamp(ktrace_file_t file, uint64_t *timestamp);
+
+uint32_t ktrace_chunk_tag(ktrace_chunk_t chunk);
+uint16_t ktrace_chunk_version_major(ktrace_chunk_t chunk);
+uint16_t ktrace_chunk_version_minor(ktrace_chunk_t chunk);
+uint64_t ktrace_chunk_size(ktrace_chunk_t chunk);
+uint64_t ktrace_chunk_size_t(ktrace_chunk_t chunk);
+const void *ktrace_chunk_map_data(ktrace_chunk_t chunk, uint64_t offset,
+                                  uint64_t size);
+void ktrace_chunk_unmap_data(ktrace_chunk_t chunk, const void *data,
+                             uint64_t size);
 
 ktrace_recording_t ktrace_recording_create(const char *name, int flags);
 void ktrace_recording_destroy(ktrace_recording_t recording);

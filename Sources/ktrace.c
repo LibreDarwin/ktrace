@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 struct ktrace_session {
@@ -56,6 +57,174 @@ struct ktrace_chunk_header {
     uint32_t version;
     uint64_t payload_length;
 };
+
+struct ktrace_compressor {
+    uint32_t row;
+    uint32_t mode;
+    uint64_t timestamp;
+    unsigned char rows[17][48];
+};
+
+/* Native 0x1f00 event chunks use a 17-row adaptive delta codec. */
+
+static uint64_t ktrace_load_u64(const unsigned char *bytes) {
+    uint64_t value;
+    memcpy(&value, bytes, sizeof(value));
+    return value;
+}
+
+static void ktrace_store_u64(unsigned char *bytes, uint64_t value) {
+    memcpy(bytes, &value, sizeof(value));
+}
+
+static size_t ktrace_compressor_decode(struct ktrace_compressor *state,
+                                       const unsigned char *input,
+                                       size_t length) {
+    unsigned char short_input[65];
+    unsigned char *data;
+    uint16_t control;
+    uint64_t timestamp_delta;
+    uint64_t word;
+    uint32_t selector;
+    uint32_t previous;
+    size_t offset;
+    size_t field;
+
+    if (length == 0)
+        return 0;
+    if (length <= 64) {
+        memset(short_input, 0, sizeof(short_input));
+        memcpy(short_input, input, length);
+        data = short_input;
+    } else {
+        data = (unsigned char *)input;
+    }
+    control = (uint16_t)data[0] | ((uint16_t)data[1] << 8);
+    selector = state->row + (data[1] >> 4);
+    if (selector > 16)
+        selector -= 17;
+
+    word = ktrace_load_u64(data + 2);
+    if ((word & 0xff) != 0) {
+        unsigned int zeros = (unsigned int)__builtin_ctzll(word);
+        word <<= 56 - (zeros << 3);
+        word >>= 57 - (zeros * 7);
+        timestamp_delta = word;
+        offset = zeros + 3;
+    } else {
+        timestamp_delta = ktrace_load_u64(data + 3);
+        offset = 11;
+    }
+
+    previous = state->row == 0 ? 16 : state->row - 1;
+    for (field = 0; field < 6; field++) {
+        uint64_t value;
+        unsigned int kind = control & 3;
+        control >>= 2;
+        if (kind == 0) {
+            value = 0;
+        } else if (kind == 1) {
+            value = ktrace_load_u64(state->rows[selector] + field * 8);
+        } else if (kind == 2) {
+            value = ktrace_load_u64(state->rows[selector] + field * 8) ^ 3;
+        } else {
+            word = ktrace_load_u64(data + offset);
+            if ((word & 0xff) != 0) {
+                unsigned int zeros = (unsigned int)__builtin_ctzll(word);
+                unsigned int length_bytes = zeros + 1;
+                word <<= (-(length_bytes << 3)) & 63;
+                value = (uint64_t)((int64_t)word >> (57 - zeros * 7));
+                offset += length_bytes;
+            } else {
+                value = ktrace_load_u64(data + offset + 1);
+                offset += 9;
+            }
+            value += ktrace_load_u64(state->rows[selector] + field * 8);
+        }
+        ktrace_store_u64(state->rows[previous] + field * 8, value);
+    }
+    if (offset >= 0x42 || offset > length)
+        return 0;
+    state->row = previous;
+    state->timestamp += timestamp_delta;
+    return offset;
+}
+
+static int ktrace_file_scan_timestamps(ktrace_file_t file, int latest,
+                                        uint64_t *timestamp) {
+    struct stat file_stat;
+    unsigned char header[16];
+    off_t offset = 0;
+    off_t length;
+    int found = 0;
+
+    if (fstat(file->fd, &file_stat) != 0)
+        return errno;
+    length = file_stat.st_size;
+    if (length < (off_t)sizeof(header) ||
+        pread(file->fd, header, sizeof(header), 0) != (ssize_t)sizeof(header))
+        return EINVAL;
+    if (ktrace_load_u64(header) == 0x0000000155aa0300ULL) {
+        uint64_t header_length = ktrace_load_u64(header + 8);
+        if (header_length > (uint64_t)length - sizeof(header) ||
+            header_length > SIZE_MAX - sizeof(header))
+            return EINVAL;
+        offset = (off_t)(sizeof(header) + header_length);
+    }
+    while (offset < length) {
+        struct ktrace_chunk_header chunk;
+        unsigned char *payload;
+        size_t payload_length;
+        ssize_t read_length;
+        if (length - offset < (off_t)sizeof(chunk) ||
+            pread(file->fd, &chunk, sizeof(chunk), offset) !=
+                (ssize_t)sizeof(chunk))
+            return EINVAL;
+        if (chunk.payload_length > (uint64_t)(length - offset - sizeof(chunk)) ||
+            chunk.payload_length > SIZE_MAX)
+            return EINVAL;
+        payload_length = (size_t)chunk.payload_length;
+        payload = malloc(payload_length == 0 ? 1 : payload_length);
+        if (payload == NULL)
+            return ENOMEM;
+        read_length = pread(file->fd, payload, payload_length,
+                            offset + (off_t)sizeof(chunk));
+        if (read_length != (ssize_t)payload_length) {
+            free(payload);
+            return EINVAL;
+        }
+        if (chunk.tag == 0x1f00 && payload_length > 12) {
+            struct ktrace_compressor state = {0};
+            size_t input_offset = 12;
+            uint64_t first_timestamp = 0;
+            while (input_offset < payload_length) {
+                size_t consumed = ktrace_compressor_decode(
+                    &state, payload + input_offset, payload_length - input_offset);
+                if (consumed == 0)
+                    break;
+                input_offset += consumed;
+                if (first_timestamp == 0)
+                    first_timestamp = state.timestamp;
+            }
+            if (input_offset == payload_length && first_timestamp != 0) {
+                uint64_t value = latest ? state.timestamp : first_timestamp;
+                if (!found || (latest ? value > *timestamp : value < *timestamp))
+                    *timestamp = value;
+                found = 1;
+            }
+        } else if (chunk.tag == 0x8007 && chunk.version == 0 &&
+                   payload_length >= sizeof(uint64_t)) {
+            uint64_t value = ktrace_load_u64(payload);
+            if (!found || (latest ? value > *timestamp : value < *timestamp))
+                *timestamp = value;
+            found = 1;
+        }
+        free(payload);
+        if (payload_length > SIZE_MAX - sizeof(chunk) - 7) return EINVAL;
+        offset += (off_t)((sizeof(chunk) + payload_length + 7) & ~(size_t)7);
+    }
+    return found ? 0 : ENOTSUP;
+}
 
 static void ktrace_session_close_file(ktrace_session_t session) {
     if (session == NULL || session->ktrace_file == NULL)
@@ -415,14 +584,14 @@ int ktrace_file_earliest_timestamp(ktrace_file_t file, uint64_t *timestamp) {
     if (file == NULL || timestamp == NULL)
         return EINVAL;
     *timestamp = 0;
-    return ENOTSUP;
+    return ktrace_file_scan_timestamps(file, 0, timestamp);
 }
 
 int ktrace_file_latest_timestamp(ktrace_file_t file, uint64_t *timestamp) {
     if (file == NULL || timestamp == NULL)
         return EINVAL;
     *timestamp = 0;
-    return ENOTSUP;
+    return ktrace_file_scan_timestamps(file, 1, timestamp);
 }
 
 int ktrace_start(ktrace_session_t session) {

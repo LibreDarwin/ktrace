@@ -63,6 +63,19 @@ int main(void) {
     const unsigned char stackshot[] = {0x07, 0x58, 0xa2, 0x59, 0x00};
     assert(ktrace_file_append_stackshot(trace_file, stackshot,
                                         sizeof(stackshot)) == 0);
+    uint64_t timestamp_value = 123456789;
+    chunk = ktrace_file_append_start(trace_file, 0x8007, 0, 0);
+    assert(chunk != NULL);
+    assert(ktrace_file_append_data(trace_file, chunk, &timestamp_value,
+                                   sizeof(timestamp_value)) == 0);
+    assert(ktrace_file_append_finish(trace_file, chunk) == 0);
+    ktrace_file_close(trace_file);
+    trace_file = ktrace_file_open(path, 0);
+    assert(trace_file != NULL);
+    assert(ktrace_file_earliest_timestamp(trace_file, &timestamp_value) == 0);
+    assert(timestamp_value == 123456789);
+    assert(ktrace_file_latest_timestamp(trace_file, &timestamp_value) == 0);
+    assert(timestamp_value == 123456789);
     ktrace_file_close(trace_file);
     fd = open(path, O_RDONLY);
     assert(fd >= 0);

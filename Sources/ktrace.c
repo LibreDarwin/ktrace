@@ -207,6 +207,7 @@ static size_t ktrace_compressor_decode(struct ktrace_compressor *state,
     }
 
     previous = state->row == 0 ? 16 : state->row - 1;
+    state->timestamp += timestamp_delta;
     for (field = 0; field < 6; field++) {
         uint64_t value;
         unsigned int kind = control & 3;
@@ -240,7 +241,6 @@ static size_t ktrace_compressor_decode(struct ktrace_compressor *state,
     if (offset >= 0x42 || offset > length)
         return 0;
     state->row = previous;
-    state->timestamp += timestamp_delta;
     return offset;
 }
 
@@ -292,15 +292,19 @@ static int ktrace_file_scan_timestamps(ktrace_file_t file, int latest,
             size_t input_offset = 12;
             uint64_t first_timestamp = 0;
             while (input_offset < payload_length) {
+                uint64_t previous_timestamp = state.timestamp;
                 size_t consumed = ktrace_compressor_decode(
                     &state, payload + input_offset, payload_length - input_offset);
-                if (consumed == 0)
+                if (consumed == 0) {
+                    if (first_timestamp == 0 && state.timestamp != previous_timestamp)
+                        first_timestamp = state.timestamp;
                     break;
+                }
                 input_offset += consumed;
                 if (first_timestamp == 0)
                     first_timestamp = state.timestamp;
             }
-            if (input_offset == payload_length && first_timestamp != 0) {
+            if (first_timestamp != 0) {
                 uint64_t value = latest ? state.timestamp : first_timestamp;
                 if (!found || (latest ? value > *timestamp : value < *timestamp))
                     *timestamp = value;

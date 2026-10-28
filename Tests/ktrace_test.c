@@ -89,6 +89,25 @@ int main(void) {
     close(fd);
     trace_file = ktrace_file_create(NULL, path);
     assert(trace_file != NULL);
+    const unsigned char partial_compressed[] = {
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0xf7, 0x65, 0x0f,
+    };
+    chunk = ktrace_file_append_start(trace_file, 0x1f00, 0, 0);
+    assert(chunk != NULL);
+    assert(ktrace_file_append_data(trace_file, chunk, partial_compressed,
+                                   sizeof(partial_compressed)) == 0);
+    assert(ktrace_file_append_finish(trace_file, chunk) == 0);
+    ktrace_file_close(trace_file);
+    trace_file = ktrace_file_open(path, 0);
+    assert(trace_file != NULL);
+    assert(ktrace_file_earliest_timestamp(trace_file, &timestamp_value) == 0);
+    assert(timestamp_value == 7);
+    assert(ktrace_file_latest_timestamp(trace_file, &timestamp_value) == 0);
+    assert(timestamp_value == 7);
+    ktrace_file_close(trace_file);
+    trace_file = ktrace_file_create(NULL, path);
+    assert(trace_file != NULL);
     chunk = ktrace_file_append_start(trace_file, 0x8002, 1, 0);
     assert(chunk != NULL);
     assert(ktrace_file_append_data(trace_file, chunk, "partial", 7) == 0);

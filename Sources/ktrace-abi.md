@@ -30,6 +30,8 @@ ktrace_file_t ktrace_file_create(void *, const char *);
 void ktrace_file_close(ktrace_file_t);
 int ktrace_file_earliest_timestamp(ktrace_file_t, uint64_t *);
 int ktrace_file_latest_timestamp(ktrace_file_t, uint64_t *);
+int ktrace_file_timebase(ktrace_file_t, uint32_t *, uint32_t *);
+int ktrace_file_supports_continuous_time(ktrace_file_t);
 ktrace_chunk_t ktrace_file_append_start(ktrace_file_t, uint32_t, uint16_t, uint16_t);
 int ktrace_file_append_data(ktrace_file_t, ktrace_chunk_t, const void *, size_t);
 int ktrace_file_append_finish(ktrace_file_t, ktrace_chunk_t);

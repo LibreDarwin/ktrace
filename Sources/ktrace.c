@@ -5,6 +5,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <mach/mach_time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -41,6 +42,8 @@ struct ktrace_file {
     int fd;
     int owns_fd;
     int writable;
+    uint32_t timebase_numerator;
+    uint32_t timebase_denominator;
     ktrace_chunk_t active_chunk;
 };
 
@@ -533,6 +536,11 @@ ktrace_file_t ktrace_file_open_fd(int fd, int writable) {
         return NULL;
     file->fd = fd;
     file->writable = writable != 0;
+    mach_timebase_info_data_t timebase = {0, 0};
+    if (mach_timebase_info(&timebase) == KERN_SUCCESS) {
+        file->timebase_numerator = timebase.numer;
+        file->timebase_denominator = timebase.denom;
+    }
     return file;
 }
 
@@ -903,6 +911,30 @@ int ktrace_file_latest_timestamp(ktrace_file_t file, uint64_t *timestamp) {
         return EINVAL;
     *timestamp = 0;
     return ktrace_file_scan_timestamps(file, 1, timestamp);
+}
+
+int ktrace_file_timebase(ktrace_file_t file, uint32_t *numerator,
+                         uint32_t *denominator) {
+    if (file == NULL || numerator == NULL || denominator == NULL)
+        return EINVAL;
+    if (file->timebase_numerator == 0 || file->timebase_denominator == 0)
+        return ENOTSUP;
+    *numerator = file->timebase_numerator;
+    *denominator = file->timebase_denominator;
+    return 0;
+}
+
+int ktrace_file_supports_continuous_time(ktrace_file_t file) {
+    __block int supported = 0;
+    if (file == NULL)
+        return 0;
+    if (ktrace_file_iterate(file, 0, ^int(ktrace_chunk_t chunk) {
+        if (ktrace_chunk_tag(chunk) == 0x1f00)
+            supported = 1;
+        return supported ? 0 : 1;
+    }) != 0)
+        return 0;
+    return supported;
 }
 
 int ktrace_start(ktrace_session_t session) {

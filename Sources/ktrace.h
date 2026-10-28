@@ -70,6 +70,9 @@ int ktrace_file_header_iterate(ktrace_file_t file, uint64_t offset,
                                ktrace_chunk_callback_t callback);
 int ktrace_file_earliest_timestamp(ktrace_file_t file, uint64_t *timestamp);
 int ktrace_file_latest_timestamp(ktrace_file_t file, uint64_t *timestamp);
+int ktrace_file_timebase(ktrace_file_t file, uint32_t *numerator,
+                         uint32_t *denominator);
+int ktrace_file_supports_continuous_time(ktrace_file_t file);
 
 uint32_t ktrace_chunk_tag(ktrace_chunk_t chunk);
 uint16_t ktrace_chunk_version_major(ktrace_chunk_t chunk);

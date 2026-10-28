@@ -111,6 +111,13 @@ int main(void) {
     ktrace_file_close(trace_file);
     trace_file = ktrace_file_open(path, 0);
     assert(trace_file != NULL);
+    uint32_t timebase_numerator = 0;
+    uint32_t timebase_denominator = 0;
+    assert(ktrace_file_timebase(trace_file, &timebase_numerator,
+                                &timebase_denominator) == 0);
+    assert(timebase_numerator != 0);
+    assert(timebase_denominator != 0);
+    assert(ktrace_file_supports_continuous_time(trace_file) == 0);
     assert(ktrace_file_earliest_timestamp(trace_file, &timestamp_value) == ENOTSUP);
     assert(ktrace_file_latest_timestamp(trace_file, &timestamp_value) == 0);
     assert(timestamp_value == 123456789);
@@ -137,6 +144,7 @@ int main(void) {
     ktrace_file_close(trace_file);
     trace_file = ktrace_file_open(path, 0);
     assert(trace_file != NULL);
+    assert(ktrace_file_supports_continuous_time(trace_file) == 1);
     assert(ktrace_file_earliest_timestamp(trace_file, &timestamp_value) == 0);
     assert(timestamp_value == 7);
     assert(ktrace_file_latest_timestamp(trace_file, &timestamp_value) == 0);

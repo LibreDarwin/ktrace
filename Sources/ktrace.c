@@ -1000,6 +1000,47 @@ int ktrace_file_uuid(ktrace_file_t file, unsigned char uuid[16]) {
     return found ? 0 : ENOTSUP;
 }
 
+int64_t ktrace_file_ktrace_event_count(ktrace_file_t file) {
+    __block int64_t count = 0;
+    int result;
+    if (file == NULL)
+        return -1;
+    result = ktrace_file_iterate(file, 0, ^int(ktrace_chunk_t chunk) {
+        const unsigned char *data;
+        uint64_t size;
+        size_t offset;
+        struct ktrace_compressor state = {0};
+        if (ktrace_chunk_tag(chunk) != 0x1f00)
+            return 1;
+        size = ktrace_chunk_size(chunk);
+        if (size <= 12)
+            return 1;
+        data = ktrace_chunk_map_data(chunk, 0, size);
+        if (data == NULL) {
+            count = -1;
+            return 0;
+        }
+        offset = 12;
+        while (offset < size) {
+            uint64_t previous_timestamp = state.timestamp;
+            size_t consumed = ktrace_compressor_decode(&state, data + offset,
+                                                       (size_t)size - offset);
+            if (consumed == 0) {
+                if (state.timestamp != previous_timestamp)
+                    count++;
+                break;
+            }
+            count++;
+            offset += consumed;
+        }
+        ktrace_chunk_unmap_data(chunk, data, size);
+        return count < 0 ? 0 : 1;
+    });
+    if (result != 0 || count < 0)
+        return -1;
+    return count;
+}
+
 int ktrace_start(ktrace_session_t session) {
     if (session == NULL)
         return EINVAL;

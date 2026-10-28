@@ -34,6 +34,7 @@ int ktrace_file_timebase(ktrace_file_t, uint32_t *, uint32_t *);
 int ktrace_file_supports_continuous_time(ktrace_file_t);
 int ktrace_file_machtime_to_walltime(ktrace_file_t, struct timeval *, uint64_t);
 int ktrace_file_uuid(ktrace_file_t, unsigned char uuid[16]);
+int64_t ktrace_file_ktrace_event_count(ktrace_file_t);
 ktrace_chunk_t ktrace_file_append_start(ktrace_file_t, uint32_t, uint16_t, uint16_t);
 int ktrace_file_append_data(ktrace_file_t, ktrace_chunk_t, const void *, size_t);
 int ktrace_file_append_finish(ktrace_file_t, ktrace_chunk_t);

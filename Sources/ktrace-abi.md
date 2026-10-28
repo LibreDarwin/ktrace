@@ -23,6 +23,8 @@ int ktrace_start_writing_file(ktrace_session_t, FILE *, int fd_or_mode,
 ktrace_recording_t ktrace_recording_create(const char *, int flags);
 void ktrace_recording_set_streams(ktrace_recording_t, FILE *, FILE *);
 typedef struct ktrace_file *ktrace_file_t;
+typedef struct ktrace_chunk *ktrace_chunk_t;
+typedef int (^ktrace_chunk_callback_t)(ktrace_chunk_t);
 ktrace_file_t ktrace_file_open(const char *, int writable);
 ktrace_file_t ktrace_file_create(void *, const char *);
 void ktrace_file_close(ktrace_file_t);
@@ -32,6 +34,15 @@ ktrace_chunk_t ktrace_file_append_start(ktrace_file_t, uint32_t, uint16_t, uint1
 int ktrace_file_append_data(ktrace_file_t, ktrace_chunk_t, const void *, size_t);
 int ktrace_file_append_finish(ktrace_file_t, ktrace_chunk_t);
 int ktrace_file_append_stackshot(ktrace_file_t, const void *, size_t);
+int ktrace_file_iterate(ktrace_file_t, uint64_t, ktrace_chunk_callback_t);
+int ktrace_file_header_iterate(ktrace_file_t, uint64_t, ktrace_chunk_callback_t);
+uint32_t ktrace_chunk_tag(ktrace_chunk_t);
+uint16_t ktrace_chunk_version_major(ktrace_chunk_t);
+uint16_t ktrace_chunk_version_minor(ktrace_chunk_t);
+uint64_t ktrace_chunk_size(ktrace_chunk_t);
+uint64_t ktrace_chunk_size_t(ktrace_chunk_t);
+const void *ktrace_chunk_map_data(ktrace_chunk_t, uint64_t offset, uint64_t size);
+void ktrace_chunk_unmap_data(ktrace_chunk_t, const void *, uint64_t size);
 int ktrace_session_get_default_event_names_enabled(ktrace_session_t);
 int ktrace_session_get_event_names_enabled(ktrace_session_t);
 ```

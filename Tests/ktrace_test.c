@@ -48,7 +48,7 @@ int main(void) {
     assert(header.tag == 0x8013);
     assert(header.version == 1);
     assert(header.payload_length == 3);
-    assert(lseek(fd, sizeof(header) + 3, SEEK_SET) == (off_t)(sizeof(header) + 3));
+    assert(lseek(fd, 24, SEEK_SET) == 24);
     assert(read(fd, &header, sizeof(header)) == (ssize_t)sizeof(header));
     assert(header.tag == 0x8014);
     assert(header.version == (2U | (3U << 16)));

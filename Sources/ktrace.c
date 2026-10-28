@@ -44,6 +44,7 @@ struct ktrace_file {
 };
 
 struct ktrace_chunk {
+    off_t rollback_offset;
     off_t header_offset;
     uint64_t payload_length;
     uint32_t tag;
@@ -69,7 +70,7 @@ static void ktrace_file_discard_active_chunk(ktrace_file_t file) {
     if (file == NULL || file->active_chunk == NULL)
         return;
     if (file->writable)
-        (void)ftruncate(file->fd, file->active_chunk->header_offset);
+        (void)ftruncate(file->fd, file->active_chunk->rollback_offset);
     free(file->active_chunk);
     file->active_chunk = NULL;
 }
@@ -322,11 +323,19 @@ ktrace_chunk_t ktrace_file_append_start(ktrace_file_t file, uint32_t tag,
     };
     struct ktrace_chunk *chunk;
     off_t offset;
+    unsigned char padding[8] = {0};
+    size_t padding_length;
     if (file == NULL || !file->writable || file->active_chunk != NULL)
         return NULL;
     offset = lseek(file->fd, 0, SEEK_END);
     if (offset < 0)
         return NULL;
+    padding_length = (size_t)((8 - (offset & 7)) & 7);
+    if (padding_length != 0 &&
+        write(file->fd, padding, padding_length) != (ssize_t)padding_length) {
+        (void)ftruncate(file->fd, offset);
+        return NULL;
+    }
     if (write(file->fd, &header, sizeof(header)) != (ssize_t)sizeof(header)) {
         (void)ftruncate(file->fd, offset);
         return NULL;
@@ -336,7 +345,8 @@ ktrace_chunk_t ktrace_file_append_start(ktrace_file_t file, uint32_t tag,
         ftruncate(file->fd, offset);
         return NULL;
     }
-    chunk->header_offset = offset;
+    chunk->rollback_offset = offset;
+    chunk->header_offset = offset + (off_t)padding_length;
     chunk->tag = tag;
     chunk->version = header.version;
     file->active_chunk = chunk;

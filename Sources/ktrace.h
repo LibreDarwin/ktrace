@@ -77,6 +77,7 @@ int ktrace_file_supports_continuous_time(ktrace_file_t file);
 int ktrace_file_machtime_to_walltime(ktrace_file_t file,
                                      struct timeval *walltime,
                                      uint64_t machtime);
+int ktrace_file_uuid(ktrace_file_t file, unsigned char uuid[16]);
 
 uint32_t ktrace_chunk_tag(ktrace_chunk_t chunk);
 uint16_t ktrace_chunk_version_major(ktrace_chunk_t chunk);

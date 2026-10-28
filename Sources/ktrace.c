@@ -45,6 +45,8 @@ struct ktrace_file {
     int writable;
     uint32_t timebase_numerator;
     uint32_t timebase_denominator;
+    unsigned char uuid[16];
+    int uuid_valid;
     ktrace_chunk_t active_chunk;
 };
 
@@ -89,11 +91,10 @@ static int ktrace_write_all(int fd, const void *data, size_t size) {
     return 0;
 }
 
-static int ktrace_file_write_header(int fd) {
+static int ktrace_file_write_header(int fd, const unsigned char uuid[16]) {
     static const unsigned char prefix[32] = {
         0x7d, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
     };
-    unsigned char uuid[16];
     unsigned char padding[8] = {0};
     uint64_t magic = 0x0000000155aa0300ULL;
     uint64_t header_length = 136;
@@ -103,10 +104,9 @@ static int ktrace_file_write_header(int fd) {
     uint32_t plist_type = 0x80001;
     uint32_t plist_length = sizeof(ktrace_empty_header_plist);
     uint32_t uuid_tag = 0x8c01;
-    uint32_t uuid_length = sizeof(uuid);
+    uint32_t uuid_length = 16;
     int result;
 
-    arc4random_buf(uuid, sizeof(uuid));
     result = ktrace_write_all(fd, &magic, sizeof(magic));
     if (result != 0)
         return result;
@@ -153,7 +153,7 @@ static int ktrace_file_write_header(int fd) {
     result = ktrace_write_all(fd, &zero, sizeof(zero));
     if (result != 0)
         return result;
-    return ktrace_write_all(fd, uuid, sizeof(uuid));
+    return ktrace_write_all(fd, uuid, 16);
 }
 
 struct ktrace_compressor {
@@ -581,7 +581,9 @@ ktrace_file_t ktrace_file_create(void *machine, const char *path) {
         return NULL;
     }
     file->owns_fd = 1;
-    if (ktrace_file_write_header(fd) != 0) {
+    arc4random_buf(file->uuid, sizeof(file->uuid));
+    file->uuid_valid = 1;
+    if (ktrace_file_write_header(fd, file->uuid) != 0) {
         ktrace_file_close(file);
         return NULL;
     }
@@ -969,6 +971,33 @@ int ktrace_file_machtime_to_walltime(ktrace_file_t file,
         walltime->tv_usec += 1000000;
     }
     return 0;
+}
+
+int ktrace_file_uuid(ktrace_file_t file, unsigned char uuid[16]) {
+    __block int found = 0;
+    if (file == NULL || uuid == NULL)
+        return EINVAL;
+    if (file->uuid_valid) {
+        memcpy(uuid, file->uuid, sizeof(file->uuid));
+        return 0;
+    }
+    if (ktrace_file_header_iterate(file, 0, ^int(ktrace_chunk_t chunk) {
+        const void *data;
+        if (ktrace_chunk_tag(chunk) != 0x8c01 ||
+            ktrace_chunk_size(chunk) != sizeof(file->uuid))
+            return 1;
+        data = ktrace_chunk_map_data(chunk, 0, sizeof(file->uuid));
+        if (data == NULL)
+            return 1;
+        memcpy(uuid, data, sizeof(file->uuid));
+        memcpy(file->uuid, data, sizeof(file->uuid));
+        file->uuid_valid = 1;
+        ktrace_chunk_unmap_data(chunk, data, sizeof(file->uuid));
+        found = 1;
+        return 0;
+    }) != 0)
+        return EINVAL;
+    return found ? 0 : ENOTSUP;
 }
 
 int ktrace_start(ktrace_session_t session) {

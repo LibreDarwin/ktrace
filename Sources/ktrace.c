@@ -306,7 +306,7 @@ static int ktrace_file_scan_timestamps(ktrace_file_t file, int latest,
                     *timestamp = value;
                 found = 1;
             }
-        } else if (chunk.tag == 0x8007 && chunk.version == 0 &&
+        } else if (chunk.tag == 0x8007 && latest &&
                    payload_length >= sizeof(uint64_t)) {
             uint64_t value = ktrace_load_u64(payload);
             if (!found || (latest ? value > *timestamp : value < *timestamp))

@@ -75,8 +75,7 @@ int main(void) {
     ktrace_file_close(trace_file);
     trace_file = ktrace_file_open(path, 0);
     assert(trace_file != NULL);
-    assert(ktrace_file_earliest_timestamp(trace_file, &timestamp_value) == 0);
-    assert(timestamp_value == 123456789);
+    assert(ktrace_file_earliest_timestamp(trace_file, &timestamp_value) == ENOTSUP);
     assert(ktrace_file_latest_timestamp(trace_file, &timestamp_value) == 0);
     assert(timestamp_value == 123456789);
     ktrace_file_close(trace_file);

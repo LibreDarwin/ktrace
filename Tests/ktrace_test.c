@@ -118,6 +118,9 @@ int main(void) {
     assert(timebase_numerator != 0);
     assert(timebase_denominator != 0);
     assert(ktrace_file_supports_continuous_time(trace_file) == 0);
+    struct timeval walltime = {0, 0};
+    assert(ktrace_file_machtime_to_walltime(trace_file, &walltime, 0) == 0);
+    assert(walltime.tv_usec >= 0 && walltime.tv_usec < 1000000);
     assert(ktrace_file_earliest_timestamp(trace_file, &timestamp_value) == ENOTSUP);
     assert(ktrace_file_latest_timestamp(trace_file, &timestamp_value) == 0);
     assert(timestamp_value == 123456789);

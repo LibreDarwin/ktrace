@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 struct ktrace_session {
@@ -935,6 +936,39 @@ int ktrace_file_supports_continuous_time(ktrace_file_t file) {
     }) != 0)
         return 0;
     return supported;
+}
+
+int ktrace_file_machtime_to_walltime(ktrace_file_t file,
+                                     struct timeval *walltime,
+                                     uint64_t machtime) {
+    struct timeval now;
+    uint64_t current_machtime;
+    long double nanoseconds;
+    long double seconds;
+    long double microseconds;
+
+    if (file == NULL || walltime == NULL)
+        return EINVAL;
+    if (file->timebase_numerator == 0 || file->timebase_denominator == 0)
+        return ENOTSUP;
+    if (gettimeofday(&now, NULL) != 0)
+        return errno;
+    current_machtime = mach_absolute_time();
+    if (machtime == 0)
+        machtime = current_machtime;
+    nanoseconds = ((long double)machtime - (long double)current_machtime) *
+                   file->timebase_numerator / file->timebase_denominator;
+    seconds = (long double)now.tv_sec + (long double)now.tv_usec / 1000000.0L;
+    seconds += nanoseconds / 1000000000.0L;
+    microseconds = seconds * 1000000.0L;
+    walltime->tv_sec = (time_t)(microseconds / 1000000.0L);
+    walltime->tv_usec = (suseconds_t)(microseconds -
+                                      (long double)walltime->tv_sec * 1000000.0L);
+    if (walltime->tv_usec < 0) {
+        walltime->tv_sec--;
+        walltime->tv_usec += 1000000;
+    }
+    return 0;
 }
 
 int ktrace_start(ktrace_session_t session) {

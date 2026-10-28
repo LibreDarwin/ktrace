@@ -79,6 +79,7 @@ int ktrace_file_machtime_to_walltime(ktrace_file_t file,
                                      uint64_t machtime);
 int ktrace_file_uuid(ktrace_file_t file, unsigned char uuid[16]);
 int64_t ktrace_file_ktrace_event_count(ktrace_file_t file);
+int ktrace_file_is_64_bit(ktrace_file_t file);
 
 uint32_t ktrace_chunk_tag(ktrace_chunk_t chunk);
 uint16_t ktrace_chunk_version_major(ktrace_chunk_t chunk);

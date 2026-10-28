@@ -1041,6 +1041,10 @@ int64_t ktrace_file_ktrace_event_count(ktrace_file_t file) {
     return count;
 }
 
+int ktrace_file_is_64_bit(ktrace_file_t file) {
+    return file == NULL ? 0 : 1;
+}
+
 int ktrace_start(ktrace_session_t session) {
     if (session == NULL)
         return EINVAL;

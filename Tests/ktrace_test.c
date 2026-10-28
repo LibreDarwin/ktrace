@@ -156,6 +156,7 @@ int main(void) {
     assert(ktrace_file_supports_continuous_time(trace_file) == 1);
     assert(ktrace_file_ktrace_event_count(trace_file) == 1);
     assert(ktrace_file_is_64_bit(trace_file) == 1);
+    assert(ktrace_file_get_format(trace_file) == 4);
     assert(ktrace_file_earliest_timestamp(trace_file, &timestamp_value) == 0);
     assert(timestamp_value == 7);
     assert(ktrace_file_latest_timestamp(trace_file, &timestamp_value) == 0);

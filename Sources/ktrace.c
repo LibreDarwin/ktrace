@@ -58,6 +58,96 @@ struct ktrace_chunk_header {
     uint64_t payload_length;
 };
 
+static const unsigned char ktrace_empty_header_plist[] = {
+    0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30,
+    0xd0, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x09,
+};
+
+static int ktrace_write_all(int fd, const void *data, size_t size) {
+    const unsigned char *bytes = data;
+    while (size != 0) {
+        ssize_t written = write(fd, bytes, size);
+        if (written < 0)
+            return errno;
+        if (written == 0)
+            return EIO;
+        bytes += written;
+        size -= (size_t)written;
+    }
+    return 0;
+}
+
+static int ktrace_file_write_header(int fd) {
+    static const unsigned char prefix[32] = {
+        0x7d, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
+    };
+    unsigned char uuid[16];
+    unsigned char padding[8] = {0};
+    uint64_t magic = 0x0000000155aa0300ULL;
+    uint64_t header_length = 136;
+    uint32_t zero = 0;
+    uint32_t one = 1;
+    uint32_t plist_tag = 0x8c00;
+    uint32_t plist_type = 0x80001;
+    uint32_t plist_length = sizeof(ktrace_empty_header_plist);
+    uint32_t uuid_tag = 0x8c01;
+    uint32_t uuid_length = sizeof(uuid);
+    int result;
+
+    arc4random_buf(uuid, sizeof(uuid));
+    result = ktrace_write_all(fd, &magic, sizeof(magic));
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, &header_length, sizeof(header_length));
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, prefix, sizeof(prefix));
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, &zero, sizeof(zero));
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, &one, sizeof(one));
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, &plist_tag, sizeof(plist_tag));
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, &plist_type, sizeof(plist_type));
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, &plist_length, sizeof(plist_length));
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, &zero, sizeof(zero));
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, ktrace_empty_header_plist,
+                              sizeof(ktrace_empty_header_plist));
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, padding, 6);
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, &uuid_tag, sizeof(uuid_tag));
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, &zero, sizeof(zero));
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, &uuid_length, sizeof(uuid_length));
+    if (result != 0)
+        return result;
+    result = ktrace_write_all(fd, &zero, sizeof(zero));
+    if (result != 0)
+        return result;
+    return ktrace_write_all(fd, uuid, sizeof(uuid));
+}
+
 struct ktrace_compressor {
     uint32_t row;
     uint32_t mode;
@@ -80,7 +170,7 @@ static void ktrace_store_u64(unsigned char *bytes, uint64_t value) {
 static size_t ktrace_compressor_decode(struct ktrace_compressor *state,
                                        const unsigned char *input,
                                        size_t length) {
-    unsigned char short_input[65];
+    unsigned char short_input[72];
     unsigned char *data;
     uint16_t control;
     uint64_t timestamp_delta;
@@ -128,6 +218,8 @@ static size_t ktrace_compressor_decode(struct ktrace_compressor *state,
         } else if (kind == 2) {
             value = ktrace_load_u64(state->rows[selector] + field * 8) ^ 3;
         } else {
+            if (offset > length || length - offset < sizeof(uint64_t))
+                return 0;
             word = ktrace_load_u64(data + offset);
             if ((word & 0xff) != 0) {
                 unsigned int zeros = (unsigned int)__builtin_ctzll(word);
@@ -136,6 +228,8 @@ static size_t ktrace_compressor_decode(struct ktrace_compressor *state,
                 value = (uint64_t)((int64_t)word >> (57 - zeros * 7));
                 offset += length_bytes;
             } else {
+                if (offset > length || length - offset < sizeof(uint64_t) + 1)
+                    return 0;
                 value = ktrace_load_u64(data + offset + 1);
                 offset += 9;
             }
@@ -470,6 +564,10 @@ ktrace_file_t ktrace_file_create(void *machine, const char *path) {
         return NULL;
     }
     file->owns_fd = 1;
+    if (ktrace_file_write_header(fd) != 0) {
+        ktrace_file_close(file);
+        return NULL;
+    }
     return file;
 }
 

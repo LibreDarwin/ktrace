@@ -48,6 +48,11 @@ int main(void) {
     assert(header.tag == 0x8013);
     assert(header.version == 1);
     assert(header.payload_length == 3);
+    unsigned char padding[5];
+    assert(lseek(fd, sizeof(header) + 3, SEEK_SET) == (off_t)(sizeof(header) + 3));
+    assert(read(fd, padding, sizeof(padding)) == (ssize_t)sizeof(padding));
+    for (size_t i = 0; i < sizeof(padding); i++)
+        assert(padding[i] == 0);
     assert(lseek(fd, 24, SEEK_SET) == 24);
     assert(read(fd, &header, sizeof(header)) == (ssize_t)sizeof(header));
     assert(header.tag == 0x8014);
